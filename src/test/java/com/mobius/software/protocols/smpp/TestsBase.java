@@ -445,7 +445,7 @@ public class TestsBase
 		public void unbindRequested(String remoteHost, Integer remotePort, String uniqueID) 
 		{
 			AtomicInteger used=usedClients.get(uniqueID);
-			if(used!=null)
+			if(used!=null && used.get()>0)
 				used.decrementAndGet();
 			
 			if(connectionListener!=null)

@@ -69,7 +69,7 @@ public class TestSmppServer
 			
 			if(keyStore!=null)
 			{
-				File f=new File(name + "_keystore");
+				File f=new File(this.getClass().getClassLoader().getResource("tls_keystore").getPath() + name);
 				FileOutputStream fs=new FileOutputStream(f);
 				keyStore.store(fs, "".toCharArray());
 				
@@ -81,7 +81,7 @@ public class TestSmppServer
 			
 			if(trustStore!=null)
 			{
-				File f=new File(name + "_keystore");
+				File f=new File(this.getClass().getClassLoader().getResource("tls_keystore").getPath() + name);
 				FileOutputStream fs=new FileOutputStream(f);
 				trustStore.store(fs, "".toCharArray());
 				
