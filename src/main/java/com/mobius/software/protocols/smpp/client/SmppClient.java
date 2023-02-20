@@ -145,6 +145,11 @@ public class SmppClient
     	}
     }
     
+    public Boolean isUp()
+    {
+    	return session.size()>0;
+    }
+    
     private void initiateChannel()
     {
     	if(!isStarted.get())

@@ -16,11 +16,11 @@ import com.mobius.software.protocols.smpp.BaseBindResp;
 import com.mobius.software.protocols.smpp.MessageStatus;
 import com.mobius.software.protocols.smpp.PduTranscoder;
 import com.mobius.software.protocols.smpp.Tlv;
-import com.mobius.software.protocols.smpp.channel.SmppSessionImpl;
 import com.mobius.software.protocols.smpp.channel.SmppServerConfiguration;
 import com.mobius.software.protocols.smpp.channel.SmppServerHandler;
 import com.mobius.software.protocols.smpp.channel.SmppSession;
 import com.mobius.software.protocols.smpp.channel.SmppSessionConfiguration;
+import com.mobius.software.protocols.smpp.channel.SmppSessionImpl;
 import com.mobius.software.protocols.smpp.channel.SmppSessionWrapper;
 import com.mobius.software.protocols.smpp.channel.SmppVersion;
 import com.mobius.software.protocols.smpp.exceptions.SmppChannelException;
@@ -116,6 +116,11 @@ public class SmppServer
 		stop();
         this.serverBootstrap = null;
         logger.info(configuration.getName() + " destroyed at " + configuration.getHost() + ":" + configuration.getPort());
+	}
+
+	public Boolean isUp(String uniqueID) 
+	{
+		return serverHandler.isUp(uniqueID);
 	}
 
 	public PduTranscoder getTranscoder() 

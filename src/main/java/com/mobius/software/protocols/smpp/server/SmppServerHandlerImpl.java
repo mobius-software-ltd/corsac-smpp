@@ -126,4 +126,11 @@ public class SmppServerHandlerImpl implements SmppServerHandler
 		callbackInterface.unbindRequested(session.getConfiguration().getHost(), session.getConfiguration().getPort(), segments[0]);
 		callbackInterface.sessionUnbound(session.getConfiguration().getHost(), session.getConfiguration().getPort(), segments[0]);
 	}
+
+	@Override
+	public Boolean isUp(String uniqueID) 
+	{
+		ConcurrentHashMap<String,SmppServerSession> innerMap = sessionsMap.get(uniqueID);
+		return innerMap!=null && innerMap.size()>0;
+	}
 }

@@ -29,5 +29,6 @@ public interface SmppServerHandler
     public void sessionCreated(SmppServerSession session, BaseBindResp preparedBindResponse) throws SmppProcessingException;
 
     public void sessionDestroyed(SmppServerSession session);
-
+    
+    public Boolean isUp(String uniqueID);
 }
