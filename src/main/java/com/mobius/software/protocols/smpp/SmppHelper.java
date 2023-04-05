@@ -42,6 +42,11 @@ public class SmppHelper
 	public static final short TAG_MESSAGE_PAYLOAD = 0x0424;
 	public static final short TAG_MSG_STATE = 0x0427;
 	
+	public static final short TAG_MSG_REF_NUM = 0x020C;
+    public static final short TAG_LANGUAGE_INDICATOR = 0x020D;
+    public static final short TAG_SEGMENT_SEQNUM = 0x020F;
+    public static final short TAG_TOTAL_SEGMENTS = 0x020E;
+    
 	public static final String DELIVERY_ACK_ID = "id:";
 	public static final String DELIVERY_ACK_SUB = " sub:";
 	public static final String DELIVERY_ACK_DLVRD = " dlvrd:";
