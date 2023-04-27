@@ -351,9 +351,9 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
                         	}
                         }
                         
+                        setBound();
                         this.sessionHandler.fireExpectedPduResponseReceived(timeoutTask.getRequest(),responsePdu);
-            			setBound();
-                        break;
+            			break;
             		default:
             			this.sessionHandler.fireExpectedPduResponseReceived(timeoutTask.getRequest(),responsePdu);
             			break;

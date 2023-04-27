@@ -271,7 +271,7 @@ public class SmppClient
     	            	else
     	            		currSession.sendResponsePdu((PduResponse)pdu);
     	            	
-    	            	retries=0;
+    	            	return;
     	            }
     	            else
     	            	retries--;
@@ -283,12 +283,14 @@ public class SmppClient
                 	
                 	iterator=session.values().iterator();
         		}
-        	}
+        	}        	        	        
         }
         catch (InterruptedException e)
         {
             
         }
+        
+        throw new SmppChannelException("no available channels found");
     }
     
     protected SmppSessionImpl createSession(Channel channel, SmppSessionConfiguration config, SmppSessionHandler sessionHandler) throws SmppTimeoutException, SmppChannelException, InterruptedException 
