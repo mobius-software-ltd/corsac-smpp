@@ -25,7 +25,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -930,16 +929,11 @@ public class MessagesTest extends TestsBase
 			if(data!=null)
 				dlrData=new String(data);
 			
-			deliverSm.setShortMessage(SmppHelper.encodeMessage(SmppHelper.createDeliveryReport(messageID, submitDate, new Date(), deliveryErrorCode, dlrData, deliveryStatus), messageEncoding));
+			deliverSm.setShortMessage(SmppHelper.translateMessage(messageEncoding,SmppHelper.createDeliveryReport(messageID, submitDate, new Date(), deliveryErrorCode, dlrData, deliveryStatus), null, null));
 		}
 		catch(SmppInvalidArgumentException ex)
 		{
 			listener.responseReceived(uniqueID, messageID, null, MessageStatus.INVMSGLEN);
-			return deliverSm;
-		}
-		catch(UnsupportedEncodingException ex1)
-		{
-			listener.responseReceived(uniqueID, messageID, null, MessageStatus.INVDCS);
 			return deliverSm;
 		}
 		

@@ -179,6 +179,7 @@ public class SmppHelper
 	public static String parseShortMessageText(DeliverSm event) throws UnsupportedEncodingException 
 	{
         byte[] data = event.getShortMessage();
+        byte[] udh = null;
         if (event.getShortMessageLength() == 0) 
         {
             Tlv messagePaylod = event.getOptionalParameter(TAG_MESSAGE_PAYLOAD);
@@ -194,7 +195,7 @@ public class SmppHelper
         int length=data.length;
         if (udhPresent && data.length > 2) 
         {
-            int udhLen = (data[0] & 0xFF) + 1;
+        	int udhLen = (data[0] & 0xFF) + 1;
             if (udhLen <= data.length) 
             {
             	start=udhLen;
@@ -202,69 +203,16 @@ public class SmppHelper
             }
         }
         
-        Encoding encoding = Encoding.fromInt(event.getDataCoding());
-        switch(encoding)
-        {
-			case IA5:
-				return new String(data,start,length,"US-ASCII");
-			case ISO2022JP:
-				return new String(data,start,length,"ISO-2022-JP-2");				
-			case UTF_16:
-				return new String(data,start,length,"UTF-16BE");				
-			case CYRLLIC:
-			case ISO_8859_1:
-			case LATIN_HEBREW:
-				if(start!=0)
-				{
-					byte[] temp=new byte[length];
-					System.arraycopy(data, start, temp, 0, length);
-					data=temp;
-				}
-				
-				StringBuilder sb=new StringBuilder();
-				gsmCharset.decode(data,sb);
-				return sb.toString();
-			case DEFAULT:
-			case RESERVED_1:
-			case RESERVED_2:
-			case JIS:
-			case JISX:
-			case KS_C:
-			case OCTET_UNSPECIFIED_1:
-			case OCTET_UNSPECIFIED_2:
-			case PICTOGRAM:
-			default:
-				return new String(data,start,length);        	
-        }
+        if(start!=0)
+		{
+			byte[] temp=new byte[length];
+			System.arraycopy(data, start, temp, 0, length);
+			data=temp;
+			udh = getShortMessageUserDataHeader(data);
+		}
+        
+        return translateMessage(Encoding.fromInt(event.getDataCoding()), data, udh);        
     }		
-	
-	public static byte[] encodeMessage(String text,Encoding encoding) throws UnsupportedEncodingException 
-	{
-        switch(encoding)
-        {
-			case IA5:
-				return text.getBytes("US-ASCII");
-			case ISO2022JP:
-				return text.getBytes("ISO-2022-JP-2");				
-			case UTF_16:
-				return text.getBytes("UTF-16BE");				
-			case CYRLLIC:
-			case ISO_8859_1:
-			case LATIN_HEBREW:
-				return gsmCharset.encode(text);				
-			case DEFAULT:
-			case RESERVED_1:
-			case RESERVED_2:
-			case JIS:
-			case JISX:
-			case KS_C:
-			case OCTET_UNSPECIFIED_1:
-			case OCTET_UNSPECIFIED_2:
-			case PICTOGRAM:
-			default:
-				return text.getBytes();        	
-        }
-    }
 	
 	public static String createDeliveryReport(String messageId, Date submitDate, Date deliveryDate, int errorCode, String messageText, DeliveryStatus deliveryStatus)
 	{
@@ -354,7 +302,7 @@ public class SmppHelper
 	}
 	
 	static public byte[] getShortMessageUserData(byte[] shortMessage) throws IllegalArgumentException {
-        if (shortMessage == null) {
+		if (shortMessage == null) {
             return null;
         }
 
@@ -479,7 +427,13 @@ public class SmppHelper
 			}
 		}
 		
-		String result=new String(data);
+		if(shiftType!=null && shiftType!=ShiftType.NONE && language!=null)
+		{
+			Charset currCharset=Language.getCharset(language);
+			return currCharset.decode(ByteBuffer.wrap(data)).toString();
+		}
+		
+		String result=new String(data);		
 		try
 		{
 			switch(encoding)
@@ -491,8 +445,10 @@ public class SmppHelper
 					result=new String(data,"ISO-2022-JP");
 					break;
 				case ISO_8859_1:
-				case IA5:
 					result=new String(data,"ISO-8859-1");
+					break;
+				case IA5:
+					result=new String(data,"US-ASCII");
 					break;
 				case JIS:
 					result=new String(data,"JIS_X0201");
@@ -506,24 +462,18 @@ public class SmppHelper
 				case LATIN_HEBREW:
 					result=new String(data,"ISO-8859-8");
 					break;
-				case PICTOGRAM:
+				case UTF_16:
+					result=new String(data,"UTF-16BE");				
 					break;
+				case DEFAULT:
+					result=gsmCharset.decode(data);
+					break;
+				default:					
 				case OCTET_UNSPECIFIED_1:				
 				case OCTET_UNSPECIFIED_2:
 				case RESERVED_1:				
 				case RESERVED_2:
-				case DEFAULT:
-					if(shiftType!=null && shiftType!=ShiftType.NONE && language!=null)
-					{
-						Charset currCharset=Language.getCharset(language);
-						result=currCharset.decode(ByteBuffer.wrap(data)).toString();
-					}
-					
-					break;
-				case UTF_16:
-					result=new String(data,"UTF-16BE");				
-					break;
-				default:
+				case PICTOGRAM:
 					break;			
 			}
 		}
@@ -537,6 +487,15 @@ public class SmppHelper
 	
 	public static byte[] translateMessage(Encoding encoding,String data,ShiftType shiftType,Language language)
 	{
+		if(shiftType!=null && shiftType!=ShiftType.NONE && language!=null)
+		{
+			Charset currCharset=Language.getCharset(language);
+			ByteBuffer encodedData=currCharset.encode(data);
+			byte[] result=new byte[encodedData.remaining()];
+			encodedData.get(result);
+			return result;
+		}	
+		
 		byte[] result=data.getBytes();
 		try
 		{
@@ -549,8 +508,10 @@ public class SmppHelper
 					result=data.getBytes("ISO-2022-JP");
 					break;
 				case ISO_8859_1:
-				case IA5:
 					result=data.getBytes("ISO-8859-1");
+					break;
+				case IA5:
+					result=data.getBytes("US-ASCII");
 					break;
 				case JIS:
 					result=data.getBytes("JIS_X0201");
@@ -566,18 +527,12 @@ public class SmppHelper
 					break;
 				case PICTOGRAM:
 					break;
+				case DEFAULT:
+					result=gsmCharset.encode(data);					
 				case OCTET_UNSPECIFIED_1:				
 				case OCTET_UNSPECIFIED_2:
 				case RESERVED_1:				
 				case RESERVED_2:
-				case DEFAULT:
-					if(shiftType!=null && shiftType!=ShiftType.NONE && language!=null)
-					{
-						Charset currCharset=Language.getCharset(language);
-						ByteBuffer encodedData=currCharset.encode(data);
-						result=new byte[encodedData.remaining()];
-						encodedData.get(result);
-					}					
 					break;
 				case UTF_16:
 					result=data.getBytes("UTF-16BE");				
