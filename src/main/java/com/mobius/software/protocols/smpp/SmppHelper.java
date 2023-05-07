@@ -207,8 +207,8 @@ public class SmppHelper
 		{
 			byte[] temp=new byte[length];
 			System.arraycopy(data, start, temp, 0, length);
-			data=temp;
 			udh = getShortMessageUserDataHeader(data);
+			data=temp;			
 		}
         
         return translateMessage(Encoding.fromInt(event.getDataCoding()), data, udh);        
