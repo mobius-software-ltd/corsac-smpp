@@ -95,7 +95,7 @@ public class SmppServerHandlerImpl implements SmppServerHandler
 					timerMap=oldMap;
 			}
 			
-			timerMap.putIfAbsent(segments[1], timer);			
+			timerMap.putIfAbsent(segments[0], timer);			
 		}
 		
 		SmppSessionHandler handler=callbackInterface.createServerHandler(session, timer);

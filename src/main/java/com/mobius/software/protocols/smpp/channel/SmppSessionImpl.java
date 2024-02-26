@@ -284,7 +284,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
     @SuppressWarnings("rawtypes")
 	public void firePduReceived(Pdu pdu)
     {
-    	networkLogger.info("received PDU: " + pdu);
+    	//networkLogger.info("received PDU: " + pdu);
         if(this.sessionHandler instanceof SmppSessionListener) 
         {
             if(!((SmppSessionListener)this.sessionHandler).firePduReceived(pdu))
