@@ -34,7 +34,7 @@ public class HealthCheckTimer implements Timer
 	{
 		if(timestamp.get()<Long.MAX_VALUE)
 		{
-			logger.warn("Closing session:" + session.getConfiguration().getName() + " due to inactivity");
+			logger.error("Closing session:" + session.getConfiguration().getName() + " due to inactivity");
 			session.passiveClose();
 		}
 	}

@@ -163,7 +163,7 @@ public class SmppClient
     	if(oldSession!=null)
     		session.remove(oldSession.getId());			
     	
-		if(oldSession!=null && oldSession.getChannel()!=null)
+    	if(oldSession!=null && oldSession.getChannel()!=null)
 			oldSession.getChannel().close();
 				
 		initiateChannel();				
