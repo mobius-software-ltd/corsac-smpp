@@ -19,10 +19,10 @@
 		<log4j2.version>2.19.0</log4j2.version>	
 		<netty.version>4.1.63.Final</netty.version>
 		<cloudhopper.version>3.0.0</cloudhopper.version>	
-		<timers.version>1.0.0-8</timers.version>
+		<timers.version>1.0.0-31</timers.version>
 		<bson.version>4.4.1</bson.version>
-		<bouncycastle.version>1.63</bouncycastle.version>	
-		<junit.version>4.13.2</junit.version>
+		<bouncycastle.version>1.71</bouncycastle.version>	
+		<junit.version>4.12</junit.version>
 		<compiler.plugin.version>3.8.1</compiler.plugin.version>
 		<compile.source>1.8</compile.source>		
 	</properties>
@@ -161,7 +161,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
-				<version>3.0.0</version>
+				<version>3.8.0</version>
 				<executions>
 					<execution>
 						<id>attach-javadocs</id>
