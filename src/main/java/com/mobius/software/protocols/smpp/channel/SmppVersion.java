@@ -22,7 +22,7 @@ import java.util.Map;
 
 public enum SmppVersion 
 {
-	VERSION_3_3(0x33),VERSION_3_4(0x35),VERSION_5_0(0x50);
+	VERSION_3_3(0x33),VERSION_3_4(0x34),VERSION_5_0(0x50);
 
 	public static final short TAG_SC_INTERFACE_VERSION = 0x0210;
 	
