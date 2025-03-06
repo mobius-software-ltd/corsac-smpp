@@ -97,7 +97,12 @@ public class SmppClient
     
     private AtomicBoolean isStarted=new AtomicBoolean(false);
     
-    public SmppClient(Boolean isEpoll,SmppSessionListener callbackInterface,Integer maxChannels,SmppSessionConfiguration configuration,Long enquiryTimeout,EventLoopGroup acceptorGroup,PeriodicQueuedTasks<Timer> timersQueue)
+    public SmppClient(Boolean isEpoll, SmppSessionListener callbackInterface, Integer maxChannels, SmppSessionConfiguration configuration, Long enquiryTimeout, EventLoopGroup acceptorGroup, PeriodicQueuedTasks<Timer> timersQueue)
+	{
+		this(isEpoll, callbackInterface, maxChannels, configuration, enquiryTimeout, acceptorGroup, timersQueue, null, null);
+	}
+    
+    public SmppClient(Boolean isEpoll, SmppSessionListener callbackInterface, Integer maxChannels, SmppSessionConfiguration configuration, Long enquiryTimeout, EventLoopGroup acceptorGroup, PeriodicQueuedTasks<Timer> timersQueue, String localHost, Integer localPort)
     {
     	if(maxChannels!=null)
     		this.clientsPoolSize=maxChannels;
@@ -211,7 +216,7 @@ public class SmppClient
     			debugLogger.debug("Channel connected for:" + configuration.getName() + ",Sending Bind Request");
     		
         	BaseBind bindRequest = createBindRequest(configuration);
-    		session.sendRequest(bindRequest,configuration.getBindTimeout());
+    		session.sendBindRequest(bindRequest,configuration.getBindTimeout());
     	}
     	catch(Exception ex)
     	{
