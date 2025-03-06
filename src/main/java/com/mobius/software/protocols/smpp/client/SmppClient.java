@@ -127,6 +127,16 @@ public class SmppClient
 		bootstrap.option(ChannelOption.SO_SNDBUF, 262144);
 		bootstrap.option(ChannelOption.SO_RCVBUF, 262144);
 		
+		if (localHost != null)
+		{
+			if (localPort != null)
+				bootstrap.localAddress(localHost, localPort);
+			else
+				bootstrap.localAddress(localHost, 0);
+		}
+		else if (localPort != null)
+			bootstrap.localAddress(localPort);
+		
 		bootstrap.remoteAddress(configuration.getHost(),configuration.getPort());
 		bootstrap.handler(clientConnector);		
     }
