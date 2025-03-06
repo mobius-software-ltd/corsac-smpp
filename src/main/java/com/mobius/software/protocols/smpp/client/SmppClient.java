@@ -97,7 +97,12 @@ public class SmppClient
     
     private AtomicBoolean isStarted=new AtomicBoolean(false);
     
-    public SmppClient(Boolean isEpoll,SmppSessionListener callbackInterface,Integer maxChannels,SmppSessionConfiguration configuration,Long enquiryTimeout,EventLoopGroup acceptorGroup,PeriodicQueuedTasks<Timer> timersQueue)
+    public SmppClient(Boolean isEpoll, SmppSessionListener callbackInterface, Integer maxChannels, SmppSessionConfiguration configuration, Long enquiryTimeout, EventLoopGroup acceptorGroup, PeriodicQueuedTasks<Timer> timersQueue)
+	{
+		this(isEpoll, callbackInterface, maxChannels, configuration, enquiryTimeout, acceptorGroup, timersQueue, null, null);
+	}
+    
+    public SmppClient(Boolean isEpoll, SmppSessionListener callbackInterface, Integer maxChannels, SmppSessionConfiguration configuration, Long enquiryTimeout, EventLoopGroup acceptorGroup, PeriodicQueuedTasks<Timer> timersQueue, String localHost, Integer localPort)
     {
     	if(maxChannels!=null)
     		this.clientsPoolSize=maxChannels;
@@ -121,6 +126,16 @@ public class SmppClient
 		bootstrap.option(ChannelOption.SO_KEEPALIVE, true);        
 		bootstrap.option(ChannelOption.SO_SNDBUF, 262144);
 		bootstrap.option(ChannelOption.SO_RCVBUF, 262144);
+		
+		if (localHost != null)
+		{
+			if (localPort != null)
+				bootstrap.localAddress(localHost, localPort);
+			else
+				bootstrap.localAddress(localHost, 0);
+		}
+		else if (localPort != null)
+			bootstrap.localAddress(localPort);
 		
 		bootstrap.remoteAddress(configuration.getHost(),configuration.getPort());
 		bootstrap.handler(clientConnector);		
@@ -211,7 +226,7 @@ public class SmppClient
     			debugLogger.debug("Channel connected for:" + configuration.getName() + ",Sending Bind Request");
     		
         	BaseBind bindRequest = createBindRequest(configuration);
-    		session.sendRequest(bindRequest,configuration.getBindTimeout());
+    		session.sendBindRequest(bindRequest,configuration.getBindTimeout());
     	}
     	catch(Exception ex)
     	{
