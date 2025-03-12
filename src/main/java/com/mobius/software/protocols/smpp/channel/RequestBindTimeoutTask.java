@@ -1,4 +1,5 @@
 package com.mobius.software.protocols.smpp.channel;
+
 /*
  * Mobius Software LTD
  * Copyright 2019 - 2023, Mobius Software LTD and individual contributors
@@ -23,56 +24,67 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.mobius.software.protocols.smpp.PduRequest;
+import com.mobius.software.protocols.smpp.exceptions.RecoverablePduException;
+import com.mobius.software.protocols.smpp.exceptions.SmppChannelException;
+import com.mobius.software.protocols.smpp.exceptions.UnrecoverablePduException;
 
-public class RequestTimeoutTask implements RequestTimeoutInterface
+public class RequestBindTimeoutTask implements RequestTimeoutInterface
 {
-	public static Logger logger=LogManager.getLogger(RequestTimeoutTask.class);
-	
+	public static Logger logger = LogManager.getLogger(RequestBindTimeoutTask.class);
+
 	private long startTime;
 	private AtomicLong timestamp;
 	private SmppSessionImpl session;
 	@SuppressWarnings("rawtypes")
-	private PduRequest request;
-	
+	private PduRequest bindRequest;
+
 	@SuppressWarnings("rawtypes")
-	public RequestTimeoutTask(SmppSessionImpl session,PduRequest request, long timeout)
+	public RequestBindTimeoutTask(SmppSessionImpl session, PduRequest bindRequest, long timeout)
 	{
-		this.session=session;
-		this.request=request;
-		this.startTime=System.currentTimeMillis();
+		this.session = session;
+		this.bindRequest = bindRequest;
+		this.startTime = System.currentTimeMillis();
 		this.timestamp = new AtomicLong(System.currentTimeMillis() + timeout);
 	}
-	
+
 	@SuppressWarnings("rawtypes")
 	public PduRequest getRequest()
 	{
-		return this.request;
+		return this.bindRequest;
 	}
-	
+
 	@Override
-	public void execute() 
+	public void execute()
 	{
-		if(timestamp.get()<Long.MAX_VALUE)
+		if (timestamp.get() < Long.MAX_VALUE)
 		{
-			session.expired(request);
+			session.expired(bindRequest);
+			try
+			{
+				session.sendRequest(bindRequest, timestamp.get() - startTime);
+			}
+			catch (RecoverablePduException | UnrecoverablePduException | SmppChannelException e)
+			{
+				e.printStackTrace();
+			}
 		}
 	}
 
 	@Override
-	public long getStartTime() 
+	public long getStartTime()
 	{
 		return startTime;
 	}
 
 	@Override
-	public Long getRealTimestamp() 
+	public Long getRealTimestamp()
 	{
 		return timestamp.get();
 	}
 
 	@Override
-	public void stop() 
+	public void stop()
 	{
 		timestamp.set(Long.MAX_VALUE);
-	}	
+	}
 }
