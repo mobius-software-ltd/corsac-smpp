@@ -2,7 +2,7 @@
 	<parent>
 		<groupId>com.mobius-software</groupId>
 		<artifactId>mobius-public-parent</artifactId>
-		<version>1.0.9</version>
+		<version>1.0.10</version>
 	</parent>
 	
 	<modelVersion>4.0.0</modelVersion>
@@ -19,12 +19,10 @@
 		<log4j2.version>2.19.0</log4j2.version>	
 		<netty.version>4.1.63.Final</netty.version>
 		<cloudhopper.version>3.0.0</cloudhopper.version>	
-		<timers.version>1.0.0-31</timers.version>
 		<bson.version>4.4.1</bson.version>
 		<bouncycastle.version>1.71</bouncycastle.version>	
 		<junit.version>4.12</junit.version>
 		<compiler.plugin.version>3.8.1</compiler.plugin.version>
-		<compile.source>1.8</compile.source>		
 	</properties>
 	
 	<licenses>
@@ -125,18 +123,7 @@
 	</developers>
 	
 	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<version>${compiler.plugin.version}</version>
-				<configuration>
-					<source>${compile.source}</source>
-					<target>${compile.source}</target>
-					<debug>${compile.debug}</debug>
-					<encoding>${project.build.sourceEncoding}</encoding>
-				</configuration>
-			</plugin>
+		<plugins>			
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
@@ -175,6 +162,49 @@
 	</build>
 
 	<profiles>
+		<profile>
+    		<id>java8</id>
+    		<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+    		<properties>
+    			<version.mobius-timers>1.0.0-33</version.mobius-timers>        
+    		</properties>
+    		<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-compiler-plugin</artifactId>
+						<version>${compiler.plugin.version}</version>
+						<configuration>
+							<source>1.8</source>
+							<target>1.8</target>
+							<debug>1.8</debug>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>			
+    	</profile>
+    	<profile>
+    		<id>java11</id>
+    		<properties>
+    			<version.mobius-timers>1.0.0-33-java11</version.mobius-timers>        
+    		</properties>
+    		<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-compiler-plugin</artifactId>
+						<version>${compiler.plugin.version}</version>
+						<configuration>
+							<source>11</source>
+							<target>11</target>
+							<debug>11</debug>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>			
+    	</profile>
 		<profile>
 			<id>src</id>
 			<build>

@@ -44,7 +44,7 @@ public class ClientChannelConnectListener implements ChannelFutureListener
 		this.configuration=configuration;
 	}
 	   
-	@Override  
+	@Override
 	public void operationComplete(ChannelFuture channelFuture) throws Exception 
 	{  
 		if (!channelFuture.isSuccess()) 
