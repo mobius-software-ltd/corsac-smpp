@@ -86,6 +86,7 @@ public class SmppClient
 	
 	private EventLoopGroup loop;
     private ConcurrentHashMap<String,SmppSessionImpl> session=new ConcurrentHashMap<String,SmppSessionImpl>();
+    private ConcurrentHashMap<String,SmppSessionImpl> pendingSessions=new ConcurrentHashMap<String,SmppSessionImpl>();
     private Integer clientsPoolSize;
     private AtomicInteger wheel=new AtomicInteger(0);
     private PeriodicQueuedTasks<Timer> timersQueue;
@@ -157,6 +158,20 @@ public class SmppClient
     		SmppSessionImpl session=iterator.next();
     		session.fireChannelClosed();
     		session.unbind(500);    		
+    	}
+    	
+    	iterator=pendingSessions.values().iterator();
+
+    	while(iterator.hasNext())
+
+    	{
+
+    		SmppSessionImpl session=iterator.next();
+
+    		session.fireChannelClosed();
+
+    		session.expireAll();    		
+
     	}
     }
     
