@@ -1,4 +1,5 @@
 package com.mobius.software.protocols.smpp.client;
+
 /*
  * Mobius Software LTD
  * Copyright 2019 - 2023, Mobius Software LTD and individual contributors
@@ -79,55 +80,55 @@ import io.netty.channel.epoll.EpollSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.ssl.SslHandler;
 
-public class SmppClient 
+public class SmppClient
 {
-	public static Logger logger=LogManager.getLogger(SmppClient.class);
-	public static Logger debugLogger=LogManager.getLogger("DEBUG");
-	
+	public static Logger logger = LogManager.getLogger(SmppClient.class);
+	public static Logger debugLogger = LogManager.getLogger("DEBUG");
+
 	private EventLoopGroup loop;
-    private ConcurrentHashMap<String,SmppSessionImpl> session=new ConcurrentHashMap<String,SmppSessionImpl>();
-    private ConcurrentHashMap<String,SmppSessionImpl> pendingSessions=new ConcurrentHashMap<String,SmppSessionImpl>();
-    private Integer clientsPoolSize;
-    private AtomicInteger wheel=new AtomicInteger(0);
-    private PeriodicQueuedTasks<Timer> timersQueue;
-    private SmppSessionConfiguration configuration;
-    private SmppSessionListener callbackInterface;
-    private SmppClientConnector clientConnector=new SmppClientConnector(this);
-    private Bootstrap bootstrap;
-    private Long enquiryTimeout;
-    
-    private AtomicBoolean isStarted=new AtomicBoolean(false);
-    
-    public SmppClient(Boolean isEpoll, SmppSessionListener callbackInterface, Integer maxChannels, SmppSessionConfiguration configuration, Long enquiryTimeout, EventLoopGroup acceptorGroup, PeriodicQueuedTasks<Timer> timersQueue)
+	private ConcurrentHashMap<String, SmppSessionImpl> session = new ConcurrentHashMap<String, SmppSessionImpl>();
+	private ConcurrentHashMap<String, SmppSessionImpl> pendingSessions = new ConcurrentHashMap<String, SmppSessionImpl>();
+	private Integer clientsPoolSize;
+	private AtomicInteger wheel = new AtomicInteger(0);
+	private PeriodicQueuedTasks<Timer> timersQueue;
+	private SmppSessionConfiguration configuration;
+	private SmppSessionListener callbackInterface;
+	private SmppClientConnector clientConnector = new SmppClientConnector(this);
+	private Bootstrap bootstrap;
+	private Long enquiryTimeout;
+
+	private AtomicBoolean isStarted = new AtomicBoolean(false);
+
+	public SmppClient(Boolean isEpoll, SmppSessionListener callbackInterface, Integer maxChannels, SmppSessionConfiguration configuration, Long enquiryTimeout, EventLoopGroup acceptorGroup, PeriodicQueuedTasks<Timer> timersQueue)
 	{
 		this(isEpoll, callbackInterface, maxChannels, configuration, enquiryTimeout, acceptorGroup, timersQueue, null, null);
 	}
-    
-    public SmppClient(Boolean isEpoll, SmppSessionListener callbackInterface, Integer maxChannels, SmppSessionConfiguration configuration, Long enquiryTimeout, EventLoopGroup acceptorGroup, PeriodicQueuedTasks<Timer> timersQueue, String localHost, Integer localPort)
-    {
-    	if(maxChannels!=null)
-    		this.clientsPoolSize=maxChannels;
-    	else
-    		this.clientsPoolSize=1;
-    	
-    	this.configuration=configuration;
-    	this.loop=acceptorGroup;
-    	this.timersQueue=timersQueue;
-    	this.callbackInterface=callbackInterface;
-    	this.enquiryTimeout=enquiryTimeout;
-    	
-    	bootstrap=new Bootstrap();
-    	bootstrap.group(loop);
-		if(isEpoll)
+
+	public SmppClient(Boolean isEpoll, SmppSessionListener callbackInterface, Integer maxChannels, SmppSessionConfiguration configuration, Long enquiryTimeout, EventLoopGroup acceptorGroup, PeriodicQueuedTasks<Timer> timersQueue, String localHost, Integer localPort)
+	{
+		if (maxChannels != null)
+			this.clientsPoolSize = maxChannels;
+		else
+			this.clientsPoolSize = 1;
+
+		this.configuration = configuration;
+		this.loop = acceptorGroup;
+		this.timersQueue = timersQueue;
+		this.callbackInterface = callbackInterface;
+		this.enquiryTimeout = enquiryTimeout;
+
+		bootstrap = new Bootstrap();
+		bootstrap.group(loop);
+		if (isEpoll)
 			bootstrap.channel(EpollSocketChannel.class);
 		else
 			bootstrap.channel(NioSocketChannel.class);
-		
+
 		bootstrap.option(ChannelOption.TCP_NODELAY, true);
-		bootstrap.option(ChannelOption.SO_KEEPALIVE, true);        
+		bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
 		bootstrap.option(ChannelOption.SO_SNDBUF, 262144);
 		bootstrap.option(ChannelOption.SO_RCVBUF, 262144);
-		
+
 		if (localHost != null)
 		{
 			if (localPort != null)
@@ -137,237 +138,232 @@ public class SmppClient
 		}
 		else if (localPort != null)
 			bootstrap.localAddress(localPort);
-		
-		bootstrap.remoteAddress(configuration.getHost(),configuration.getPort());
-		bootstrap.handler(clientConnector);		
-    }
-    
-    public void startClient()
-    {
-    	isStarted.set(true);    	
-    	for(int i=0;i<clientsPoolSize;i++)
-    		initiateChannel();    	
-    }
-    
-    public void stopClient()
-    {
-    	isStarted.set(false);
-    	Iterator<SmppSessionImpl> iterator=session.values().iterator();
-    	while(iterator.hasNext())
-    	{
-    		SmppSessionImpl session=iterator.next();
-    		session.fireChannelClosed();
-    		session.unbind(500);    		
-    	}
-    	
-    	iterator=pendingSessions.values().iterator();
 
-    	while(iterator.hasNext())
+		bootstrap.remoteAddress(configuration.getHost(), configuration.getPort());
+		bootstrap.handler(clientConnector);
+	}
 
-    	{
+	public void startClient()
+	{
+		isStarted.set(true);
+		for (int i = 0; i < clientsPoolSize; i++)
+			initiateChannel();
+	}
 
-    		SmppSessionImpl session=iterator.next();
-
-    		session.fireChannelClosed();
-
-    		session.expireAll();    		
-
-    	}
-    }
-    
-    public Boolean isUp()
-    {
-    	return session.size()>0;
-    }
-    
-    private void initiateChannel()
-    {
-    	if(!isStarted.get())
-    		return;
-    
-    	bootstrap.connect().addListener(new ClientChannelConnectListener(timersQueue, this, configuration));		
-    }
-    
-    public void startChannel(SmppSessionImpl oldSession)
-    {
-    	if(oldSession!=null)
-    		session.remove(oldSession.getId());			
-    	
-    	if(oldSession!=null && oldSession.getChannel()!=null)
-			oldSession.getChannel().close();
-				
-		initiateChannel();				
-    }
-    
-    public void restartChannel(SmppSessionImpl oldSession)
-    {
-    	if(!isStarted.get())
-    		return;
-    	
-    	if(oldSession!=null)
-    		session.remove(oldSession.getId());			
-    	
-		if(oldSession!=null)
+	public void stopClient()
+	{
+		isStarted.set(false);
+		Iterator<SmppSessionImpl> iterator = session.values().iterator();
+		while (iterator.hasNext())
 		{
-			if(oldSession.getChannel().remoteAddress()!=null && oldSession.getChannel().remoteAddress() instanceof InetSocketAddress)
-	    	{
-	    		InetSocketAddress realAddress=(InetSocketAddress)oldSession.getChannel().remoteAddress();
-	    		callbackInterface.connectionEstablished(realAddress.getHostName(), realAddress.getPort(), configuration.getName());
-	    	}
+			SmppSessionImpl session = iterator.next();
+			session.fireChannelClosed();
+			session.unbind(500);
 		}
-		
-		if(oldSession!=null && oldSession.getChannel()!=null)
-			oldSession.getChannel().close();
-		
-		DelayedReconnectTimer reconnectTimer=new DelayedReconnectTimer(this, configuration);
-		timersQueue.store(reconnectTimer.getRealTimestamp(), reconnectTimer);
-    }
-    
-    public Long getEnquiryTimeout()
-    {
-    	return enquiryTimeout;
-    }
-    
-    @SuppressWarnings("rawtypes")
-	public void channelConnected(Channel channel)
-    {    	
-    	try
-    	{
-    		SmppSessionHandler sessionHandler=callbackInterface.createClientHandler(this, configuration.getName());
-    		SmppSessionImpl session=createSession(channel, configuration, sessionHandler);
-    		sessionHandler.setSession(session);
-    		
-    		if(debugLogger.isDebugEnabled())				
-    			debugLogger.debug("Channel connected for:" + configuration.getName() + ",Sending Bind Request");
-    		
-        	BaseBind bindRequest = createBindRequest(configuration);
-    		session.sendBindRequest(bindRequest,configuration.getBindTimeout());
-    	}
-    	catch(Exception ex)
-    	{
-    		logger.error("An error occured while requesting bind request to remote address " + channel.remoteAddress().toString(),ex);
-    		channel.close();
-			restartChannel(null);
-    	}
-    }
-    
-    public void sessionBound(SmppSessionImpl session)
-    {    	
-    	this.session.put(session.getId(),session);
-    	if(session.getChannel().remoteAddress()!=null && session.getChannel().remoteAddress() instanceof InetSocketAddress)
-    	{
-    		InetSocketAddress realAddress=(InetSocketAddress)session.getChannel().remoteAddress();
-    		callbackInterface.connectionEstablished(realAddress.getHostName(), realAddress.getPort(), configuration.getName());
-    	}
-    }
-    
-    @SuppressWarnings("rawtypes")
-	public void send(Pdu pdu) throws RecoverablePduException, UnrecoverablePduException, SmppTimeoutException, SmppChannelException
-    {
-        try
-        {
-        	if(session.size()==0)
-        		throw new SmppChannelException("no available channels found");
-        	
-        	Iterator<SmppSessionImpl> iterator=session.values().iterator();
-        	int startEntry=wheel.incrementAndGet()%session.size();
-        	while(startEntry>0)
-        	{
-        		if(iterator.hasNext())
-        		{
-        			iterator.next();
-        			startEntry--;
-        		}
-        		else
-        		{
-        			if(session.size()==0)
-                		throw new SmppChannelException("no available channels found");
-                	
-                	iterator=session.values().iterator();
-                	
-        		}
-        	}
-        	
-        	int retries=session.size();
-        	while(retries>0)
-        	{
-        		if(iterator.hasNext())
-        		{
-        			SmppSessionImpl currSession=iterator.next();
-        			if (currSession != null && currSession.isBound())
-    	            {
-    	            	if(pdu.isRequest())
-    	            		currSession.sendRequestPdu((PduRequest)pdu);
-    	            	else
-    	            		currSession.sendResponsePdu((PduResponse)pdu);
-    	            	
-    	            	return;
-    	            }
-    	            else
-    	            	retries--;
-        		}
-        		else
-        		{
-        			if(session.size()==0)
-                		throw new SmppChannelException("no available channels found");
-                	
-                	iterator=session.values().iterator();
-        		}
-        	}        	        	        
-        }
-        catch (InterruptedException e)
-        {
-            
-        }
-        
-        throw new SmppChannelException("no available channels found");
-    }
-    
-    protected SmppSessionImpl createSession(Channel channel, SmppSessionConfiguration config, SmppSessionHandler sessionHandler) throws SmppTimeoutException, SmppChannelException, InterruptedException 
-    {
-        SmppSessionImpl session = new SmppSessionImpl(SmppSession.Type.CLIENT, config, channel, sessionHandler, timersQueue);
 
-        // add SSL handler 
-        if (config.isUseSsl()) 
-        {
-		    SslConfiguration sslConfig = config.getSslConfiguration();
-		    if (sslConfig == null) 
-		    	throw new IllegalStateException("sslConfiguration must be set");
-		    try 
-		    {
+		iterator = pendingSessions.values().iterator();
+		while (iterator.hasNext())
+		{
+			SmppSessionImpl session = iterator.next();
+			session.fireChannelClosed();
+			session.expireAll();
+			session.destroy();
+		}
+	}
+
+	public Boolean isUp()
+	{
+		return session.size() > 0;
+	}
+
+	private void initiateChannel()
+	{
+		if (!isStarted.get())
+			return;
+
+		bootstrap.connect().addListener(new ClientChannelConnectListener(timersQueue, this, configuration));
+	}
+
+	public void startChannel(SmppSessionImpl oldSession)
+	{
+		if (oldSession != null)
+			session.remove(oldSession.getId());
+
+		if (oldSession != null && oldSession.getChannel() != null)
+			oldSession.getChannel().close();
+
+		initiateChannel();
+	}
+
+	public void restartChannel(SmppSessionImpl oldSession)
+	{
+		if (!isStarted.get())
+			return;
+
+		if (oldSession != null)
+			session.remove(oldSession.getId());
+
+		if (oldSession != null)
+		{
+			if (oldSession.getChannel().remoteAddress() != null && oldSession.getChannel().remoteAddress() instanceof InetSocketAddress)
+			{
+				InetSocketAddress realAddress = (InetSocketAddress) oldSession.getChannel().remoteAddress();
+				callbackInterface.connectionEstablished(realAddress.getHostName(), realAddress.getPort(), configuration.getName());
+			}
+		}
+
+		if (oldSession != null && oldSession.getChannel() != null)
+			oldSession.getChannel().close();
+
+		DelayedReconnectTimer reconnectTimer = new DelayedReconnectTimer(this, configuration);
+		timersQueue.store(reconnectTimer.getRealTimestamp(), reconnectTimer);
+	}
+
+	public Long getEnquiryTimeout()
+	{
+		return enquiryTimeout;
+	}
+
+	@SuppressWarnings("rawtypes")
+	public void channelConnected(Channel channel)
+	{
+		try
+		{
+			SmppSessionHandler sessionHandler = callbackInterface.createClientHandler(this, configuration.getName());
+			SmppSessionImpl session = createSession(channel, configuration, sessionHandler);
+			sessionHandler.setSession(session);
+
+			if (debugLogger.isDebugEnabled())
+				debugLogger.debug("Channel connected for:" + configuration.getName() + ",Sending Bind Request");
+
+			BaseBind bindRequest = createBindRequest(configuration);
+			session.sendBindRequest(bindRequest, configuration.getBindTimeout());
+		}
+		catch (Exception ex)
+		{
+			logger.error("An error occured while requesting bind request to remote address " + channel.remoteAddress().toString(), ex);
+			channel.close();
+			restartChannel(null);
+		}
+	}
+
+	public void sessionBound(SmppSessionImpl session)
+	{
+		this.session.put(session.getId(), session);
+		if (session.getChannel().remoteAddress() != null && session.getChannel().remoteAddress() instanceof InetSocketAddress)
+		{
+			InetSocketAddress realAddress = (InetSocketAddress) session.getChannel().remoteAddress();
+			callbackInterface.connectionEstablished(realAddress.getHostName(), realAddress.getPort(), configuration.getName());
+		}
+	}
+
+	@SuppressWarnings("rawtypes")
+	public void send(Pdu pdu) throws RecoverablePduException, UnrecoverablePduException, SmppTimeoutException, SmppChannelException
+	{
+		try
+		{
+			if (session.size() == 0)
+				throw new SmppChannelException("no available channels found");
+
+			Iterator<SmppSessionImpl> iterator = session.values().iterator();
+			int startEntry = wheel.incrementAndGet() % session.size();
+			while (startEntry > 0)
+			{
+				if (iterator.hasNext())
+				{
+					iterator.next();
+					startEntry--;
+				}
+				else
+				{
+					if (session.size() == 0)
+						throw new SmppChannelException("no available channels found");
+
+					iterator = session.values().iterator();
+
+				}
+			}
+
+			int retries = session.size();
+			while (retries > 0)
+			{
+				if (iterator.hasNext())
+				{
+					SmppSessionImpl currSession = iterator.next();
+					if (currSession != null && currSession.isBound())
+					{
+						if (pdu.isRequest())
+							currSession.sendRequestPdu((PduRequest) pdu);
+						else
+							currSession.sendResponsePdu((PduResponse) pdu);
+
+						return;
+					}
+					else
+						retries--;
+				}
+				else
+				{
+					if (session.size() == 0)
+						throw new SmppChannelException("no available channels found");
+
+					iterator = session.values().iterator();
+				}
+			}
+		}
+		catch (InterruptedException e)
+		{
+
+		}
+
+		throw new SmppChannelException("no available channels found");
+	}
+
+	protected SmppSessionImpl createSession(Channel channel, SmppSessionConfiguration config, SmppSessionHandler sessionHandler) throws SmppTimeoutException, SmppChannelException, InterruptedException
+	{
+		SmppSessionImpl session = new SmppSessionImpl(SmppSession.Type.CLIENT, config, channel, sessionHandler, timersQueue);
+
+		// add SSL handler
+		if (config.isUseSsl())
+		{
+			SslConfiguration sslConfig = config.getSslConfiguration();
+			if (sslConfig == null)
+				throw new IllegalStateException("sslConfiguration must be set");
+			try
+			{
 				SslContextFactory factory = new SslContextFactory(sslConfig);
 				SSLEngine sslEngine = factory.newSslEngine();
 				sslEngine.setUseClientMode(true);
 				channel.pipeline().addLast("SSL", new SslHandler(sslEngine));
-		    } 
-		    catch (Exception e) 
-		    {
-		    	throw new SmppChannelConnectException("Unable to create SSL session]: " + e.getMessage(), e);
-		    }
-        }
+			}
+			catch (Exception e)
+			{
+				throw new SmppChannelConnectException("Unable to create SSL session]: " + e.getMessage(), e);
+			}
+		}
 
-        channel.pipeline().addLast(SmppMessageDecoder.NAME, new SmppMessageDecoder(session.getTranscoder()));
-        channel.pipeline().addLast(SmppSessionWrapper.NAME, new SmppSessionWrapper(session));
-        return session;
-    }
-    
-    @SuppressWarnings("rawtypes")
-	protected BaseBind createBindRequest(SmppSessionConfiguration config) throws UnrecoverablePduException 
-    {
-        BaseBind bind = null;
-        if (config.getType() == SmppBindType.TRANSCEIVER) 
-            bind = new BindTransceiver();
-        else if (config.getType() == SmppBindType.RECEIVER) 
-            bind = new BindReceiver();
-        else if (config.getType() == SmppBindType.TRANSMITTER) 
-            bind = new BindTransmitter();
-        else 
-            throw new UnrecoverablePduException("Unable to convert SmppSessionConfiguration into a BaseBind request");
-        
-        bind.setSystemId(config.getSystemId());
-        bind.setPassword(config.getPassword());
-        bind.setSystemType(config.getSystemType());
-        bind.setInterfaceVersion(config.getInterfaceVersion());
-        return bind;
-    }
+		channel.pipeline().addLast(SmppMessageDecoder.NAME, new SmppMessageDecoder(session.getTranscoder()));
+		channel.pipeline().addLast(SmppSessionWrapper.NAME, new SmppSessionWrapper(session));
+		return session;
+	}
+
+	@SuppressWarnings("rawtypes")
+	protected BaseBind createBindRequest(SmppSessionConfiguration config) throws UnrecoverablePduException
+	{
+		BaseBind bind = null;
+		if (config.getType() == SmppBindType.TRANSCEIVER)
+			bind = new BindTransceiver();
+		else if (config.getType() == SmppBindType.RECEIVER)
+			bind = new BindReceiver();
+		else if (config.getType() == SmppBindType.TRANSMITTER)
+			bind = new BindTransmitter();
+		else
+			throw new UnrecoverablePduException("Unable to convert SmppSessionConfiguration into a BaseBind request");
+
+		bind.setSystemId(config.getSystemId());
+		bind.setPassword(config.getPassword());
+		bind.setSystemType(config.getSystemType());
+		bind.setInterfaceVersion(config.getInterfaceVersion());
+		return bind;
+	}
 }

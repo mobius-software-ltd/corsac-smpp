@@ -49,6 +49,7 @@ public class ClientChannelConnectListener implements ChannelFutureListener
 	{  
 		if (!channelFuture.isSuccess()) 
 		{  
+			logger.error("An error occured while connecting to remote address:" + configuration.getHost() + ":" + configuration.getPort());
 			ReconnectionTimer timer=new ReconnectionTimer(channelFuture.channel());
 			timersQueue.store(timer.getRealTimestamp(), timer);			 
 		}   
@@ -67,8 +68,6 @@ public class ClientChannelConnectListener implements ChannelFutureListener
 		@Override
 		public void execute() 
 		{
-			logger.error("An error occured while connecting to remote address:" + configuration.getHost() + ":" + configuration.getPort());
-			
 			if(channel!=null && channel.isOpen())
 				channel.close();
 			
