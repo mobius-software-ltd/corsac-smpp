@@ -1,4 +1,7 @@
 package com.mobius.software.protocols.smpp.channel;
+
+import com.mobius.software.common.dal.timers.CountableQueue;
+import com.mobius.software.common.dal.timers.Task;
 /*
  * Mobius Software LTD
  * Copyright 2019 - 2023, Mobius Software LTD and individual contributors
@@ -27,27 +30,55 @@ public class SmppSessionWrapper extends SimpleChannelInboundHandler<Pdu>
 	public static final String NAME = "smppSessionWrapper";
     
 	private SmppSessionChannelListener listener;
+	private CountableQueue<Task> mainQueue;
 
-	public SmppSessionWrapper(SmppSessionChannelListener listener)
+	public SmppSessionWrapper(SmppSessionChannelListener listener, CountableQueue<Task> mainQueue)
 	{
-		this.listener=listener;
+		this.listener = listener;
+		this.mainQueue = mainQueue;
 	}
 	
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, Pdu msg) throws Exception 
-	{		
-		this.listener.firePduReceived(msg);
+	{
+		this.mainQueue.offerLast(new Task()
+		{
+			@Override
+			public void execute()
+			{
+				SmppSessionWrapper.this.listener.firePduReceived(msg);
+			}
+
+			@Override
+			public long getStartTime()
+			{
+				return System.currentTimeMillis();
+			}
+		});
 	}
 	
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception 
 	{
-		this.listener.fireExceptionThrown(cause);
+		this.mainQueue.offerLast(new Task()
+		{
+			@Override
+			public void execute()
+			{
+				SmppSessionWrapper.this.listener.fireExceptionThrown(cause);
+			}
+
+			@Override
+			public long getStartTime()
+			{
+				return System.currentTimeMillis();
+			}
+		});
 	}
 	 
 	@Override
 	public void channelInactive(ChannelHandlerContext ctx) throws Exception 
 	{
-		this.listener.fireChannelClosed();
+		SmppSessionWrapper.this.listener.fireChannelClosed();
 	}
 }

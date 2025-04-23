@@ -78,7 +78,6 @@ public class UnboundSmppSession implements SmppSessionChannelListener
             } 
             catch (SmppProcessingException e) 
             {
-            	e.printStackTrace();
                 logger.warn("Bind request rejected or failed for connection [" + channelName + "] with error [" + e.getMessage() + "]");
                 BaseBindResp bindResponse = server.createBindResponse(bindRequest, e.getErrorCode());
                 this.sendResponsePdu(bindResponse);

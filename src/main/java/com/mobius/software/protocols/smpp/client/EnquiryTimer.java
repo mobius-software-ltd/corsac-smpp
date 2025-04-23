@@ -58,7 +58,7 @@ public class EnquiryTimer implements Timer
 			}
 			catch(Exception ex)
 			{
-				ex.printStackTrace();
+				logger.warn("An exception occured while sending request pdu: " + ex);
 			}
 			
 			this.timestamp.set(System.currentTimeMillis() + timeout);
