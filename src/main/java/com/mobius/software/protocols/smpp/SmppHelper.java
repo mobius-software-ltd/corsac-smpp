@@ -8,6 +8,7 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.TimeZone;
 
 import com.cloudhopper.commons.charset.PackedGSMCharset;
 import com.cloudhopper.commons.util.ByteUtil;
@@ -59,7 +60,6 @@ public class SmppHelper
 	private static PackedGSMCharset gsmCharset=new PackedGSMCharset();
 	public static final SimpleDateFormat DELIVERY_ACK_DATE_FORMAT = new SimpleDateFormat("yyMMddHHmm");
 	
-	@SuppressWarnings("deprecation")
 	public static Date parseSmppDate(String val) throws ParseException 
 	{
 		if (val == null || val.length() == 0)
@@ -111,22 +111,27 @@ public class SmppHelper
 			int hr = Integer.parseInt(hrS);
 			int mi = Integer.parseInt(miS);
 			int sc = Integer.parseInt(scS);
-			Date date = new Date(yr + 100, mn - 1, dy, hr, mi, sc);
-
+			
+			Calendar c = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+			c.set(Calendar.YEAR, c.get(Calendar.YEAR) - c.get(Calendar.YEAR)%100 + yr);
+			c.set(Calendar.MONTH, mn);
+			c.set(Calendar.DATE, dy);
+			c.set(Calendar.HOUR, hr);
+			c.set(Calendar.MINUTE, mi);
+			c.set(Calendar.SECOND, sc);
+			c.set(Calendar.MILLISECOND,0);
+			
 			int dSec = Integer.parseInt(s2);
 			int tZone = Integer.parseInt(s3);
 			switch (sign) {
-			case '+':
-				res = new Date(date.getTime() + dSec * 100 - tZone * 15 * 60 * 1000);
-				break;
-			case '-':
-				res = new Date(date.getTime() + dSec * 100 + tZone * 15 * 60 * 1000);
-				break;
-			case 'R':
-				res = new Date((new Date()).getTime() + date.getTime() + dSec * 100);
-				break;
-			default:
-				throw new ParseException("16-th character must be '+' or '-' for absolute time format or 'R' for relative time format", 16);
+				case '+':
+					res = new Date(c.getTimeInMillis() + dSec * 100 - tZone * 15 * 60 * 1000);
+					break;
+				case '-':
+					res = new Date(c.getTimeInMillis() + dSec * 100 + tZone * 15 * 60 * 1000);
+					break;
+				default:
+					throw new ParseException("16-th character must be '+' or '-' for absolute time format or 'R' for relative time format", 16);
 			}
 		}			
 
