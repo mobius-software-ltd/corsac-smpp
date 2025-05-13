@@ -9,10 +9,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bson.types.ObjectId;
 
-import com.mobius.software.common.dal.timers.CountableQueue;
-import com.mobius.software.common.dal.timers.PeriodicQueuedTasks;
-import com.mobius.software.common.dal.timers.Task;
-import com.mobius.software.common.dal.timers.Timer;
+import com.mobius.software.common.dal.timers.RunnableTask;
+import com.mobius.software.common.dal.timers.WorkerPool;
 import com.mobius.software.protocols.smpp.BaseBind;
 import com.mobius.software.protocols.smpp.BaseBindResp;
 import com.mobius.software.protocols.smpp.MessageStatus;
@@ -65,24 +63,23 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 	private SmppVersion interfaceVersion;
 
 	private SmppServerHandler server;
-	private CountableQueue<Task> mainQueue;
-	private PeriodicQueuedTasks<Timer> timersQueue;
+	private WorkerPool workerPool;
 
 	private BaseBindResp preparedBindResponse;
 
 	private ConcurrentHashMap<Integer, RequestTimeoutInterface> pendingRequests = new ConcurrentHashMap<Integer, RequestTimeoutInterface>();
 	private String id;
 
-	public SmppSessionImpl(Type localType, SmppSessionConfiguration configuration, Channel channel, SmppServerHandler server, BaseBindResp preparedBindResponse, SmppVersion interfaceVersion, CountableQueue<Task> mainQueue, PeriodicQueuedTasks<Timer> timersQueue)
+	public SmppSessionImpl(Type localType, SmppSessionConfiguration configuration, Channel channel, SmppServerHandler server, BaseBindResp preparedBindResponse, SmppVersion interfaceVersion, WorkerPool workerPool)
 	{
-		this(localType, configuration, channel, (SmppSessionHandler) null, mainQueue, timersQueue);
+		this(localType, configuration, channel, (SmppSessionHandler) null, workerPool);
 		this.state.set(STATE_BINDING);
 		this.server = server;
 		this.preparedBindResponse = preparedBindResponse;
 		this.interfaceVersion = interfaceVersion;
 	}
 
-	public SmppSessionImpl(Type localType, SmppSessionConfiguration configuration, Channel channel, SmppSessionHandler sessionHandler, CountableQueue<Task> mainQueue, PeriodicQueuedTasks<Timer> timersQueue)
+	public SmppSessionImpl(Type localType, SmppSessionConfiguration configuration, Channel channel, SmppSessionHandler sessionHandler, WorkerPool workerPool)
 	{
 		this.localType = localType;
 		this.state = new AtomicInteger(STATE_OPEN);
@@ -91,8 +88,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 		this.boundTime = new AtomicLong(0);
 		this.sessionHandler = (sessionHandler == null ? new EmptySmppSessionHandler() : sessionHandler);
 		this.sequenceNumber = new SequenceNumber();
-		this.mainQueue = mainQueue;
-		this.timersQueue = timersQueue;
+		this.workerPool = workerPool;
 		this.transcoder = new PduTranscoder();
 
 		this.server = null;
@@ -412,10 +408,10 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 				}
 			}
 
-			this.mainQueue.offerLast(new Task()
+			this.workerPool.addTaskLast(new RunnableTask(new Runnable()
 			{
 				@Override
-				public void execute()
+				public void run()
 				{
 
 					ByteBuf buffer;
@@ -431,16 +427,10 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 
 					RequestTimeoutTask timeoutTask = new RequestTimeoutTask(SmppSessionImpl.this, request, timeoutInMillis);
 					pendingRequests.put(request.getSequenceNumber(), timeoutTask);
-					timersQueue.store(timeoutTask.getRealTimestamp(), timeoutTask);
+					workerPool.getPeriodicQueue().store(timeoutTask.getRealTimestamp(), timeoutTask);
 					channel.writeAndFlush(buffer);
 				}
-
-				@Override
-				public long getStartTime()
-				{
-					return System.currentTimeMillis();
-				}
-			});
+			}, this.id));
 		}
 		else
 			throw new SmppChannelException("Channel is not active");
@@ -463,10 +453,10 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 				}
 			}
 
-			this.mainQueue.offerLast(new Task()
+			this.workerPool.addTaskLast(new RunnableTask(new Runnable()
 			{
 				@Override
-				public void execute()
+				public void run()
 				{
 					ByteBuf buffer;
 					try
@@ -481,17 +471,10 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 
 					RequestBindTimeoutTask timeoutTask = new RequestBindTimeoutTask(SmppSessionImpl.this, request, timeoutInMillis);
 					pendingRequests.put(request.getSequenceNumber(), timeoutTask);
-					timersQueue.store(timeoutTask.getRealTimestamp(), timeoutTask);
+					workerPool.getPeriodicQueue().store(timeoutTask.getRealTimestamp(), timeoutTask);
 					channel.writeAndFlush(buffer);
 				}
-
-				@Override
-				public long getStartTime()
-				{
-					return System.currentTimeMillis();
-				}
-
-			});
+			}, this.id));
 		}
 		else
 			throw new SmppChannelException("Channel is not active");
@@ -555,10 +538,10 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 
 		if (channel.isActive())
 		{
-			this.mainQueue.offerLast(new Task()
+			this.workerPool.addTaskLast(new RunnableTask(new Runnable()
 			{
 				@Override
-				public void execute()
+				public void run()
 				{
 					ByteBuf buffer;
 					try
@@ -573,14 +556,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 
 					channel.writeAndFlush(buffer);
 				}
-
-				@Override
-				public long getStartTime()
-				{
-					return System.currentTimeMillis();
-				}
-
-			});
+			}, this.id));
 		}
 		else
 			throw new SmppChannelException("Channel is not active");

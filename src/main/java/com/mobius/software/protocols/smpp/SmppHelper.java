@@ -114,9 +114,9 @@ public class SmppHelper
 			
 			Calendar c = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
 			c.set(Calendar.YEAR, c.get(Calendar.YEAR) - c.get(Calendar.YEAR)%100 + yr);
-			c.set(Calendar.MONTH, mn);
+			c.set(Calendar.MONTH, mn - 1);
 			c.set(Calendar.DATE, dy);
-			c.set(Calendar.HOUR, hr);
+			c.set(Calendar.HOUR_OF_DAY, hr);
 			c.set(Calendar.MINUTE, mi);
 			c.set(Calendar.SECOND, sc);
 			c.set(Calendar.MILLISECOND,0);

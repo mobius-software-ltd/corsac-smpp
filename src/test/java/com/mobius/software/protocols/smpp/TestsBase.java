@@ -230,8 +230,8 @@ public class TestsBase
 		workerPool.start(maxWorkers);
 		
 		SmppChannelConfig config=new SmppChannelConfig(null, null, connectTimeout, bindTimeout, requestTimeout, enquiryLinkTimeout, null);
-		server.start("default", false, isEpoll, "0.0.0.0", smppPort, null, null, config, listenerWrapper, listenerWrapper, workerPool.getQueue(), workerPool.getPeriodicQueue(), acceptorGroup, clientGroup, maxWorkers);
-		tlsServer.start("tls", true, isEpoll, "0.0.0.0", tlsPort, serverKeyStore, null, config, listenerWrapper, listenerWrapper, workerPool.getQueue(), workerPool.getPeriodicQueue(), acceptorGroup, clientGroup, maxWorkers);
+		server.start("default", false, isEpoll, "0.0.0.0", smppPort, null, null, config, listenerWrapper, listenerWrapper, workerPool, acceptorGroup, clientGroup, maxWorkers);
+		tlsServer.start("tls", true, isEpoll, "0.0.0.0", tlsPort, serverKeyStore, null, config, listenerWrapper, listenerWrapper, workerPool, acceptorGroup, clientGroup, maxWorkers);
 	}
 		
 	@AfterClass
@@ -257,8 +257,8 @@ public class TestsBase
 	public static void startServer() throws ClassNotFoundException, GeneralSecurityException, IOException, SmppChannelException
 	{
 		SmppChannelConfig config=new SmppChannelConfig(null, null, connectTimeout, bindTimeout, requestTimeout, enquiryLinkTimeout, null);
-		server.start("default", false, isEpoll, "0.0.0.0", smppPort, null, null, config, listenerWrapper, listenerWrapper, workerPool.getQueue(), workerPool.getPeriodicQueue(), acceptorGroup, clientGroup, maxWorkers);
-		tlsServer.start("tls", true, isEpoll, "0.0.0.0", tlsPort, serverKeyStore, null, config, listenerWrapper, listenerWrapper, workerPool.getQueue(), workerPool.getPeriodicQueue(), acceptorGroup, clientGroup, maxWorkers);
+		server.start("default", false, isEpoll, "0.0.0.0", smppPort, null, null, config, listenerWrapper, listenerWrapper, workerPool, acceptorGroup, clientGroup, maxWorkers);
+		tlsServer.start("tls", true, isEpoll, "0.0.0.0", tlsPort, serverKeyStore, null, config, listenerWrapper, listenerWrapper, workerPool, acceptorGroup, clientGroup, maxWorkers);
 	}
 	
 	protected static void setConnectionListener(ConnectionListener newConnectionListener)
@@ -306,7 +306,7 @@ public class TestsBase
 		responses.put(connectionID, new ConcurrentLinkedQueue<ResponseWrapper>());
 		timeouts.put(connectionID, new ConcurrentLinkedQueue<TimeoutWrapper>());
 		
-		client.start(connectionID, isTLS, isEpoll, "127.0.0.1", port, ks, ts, config, listenerWrapper, listenerWrapper, workerPool.getQueue(), workerPool.getPeriodicQueue(), acceptorGroup, clientGroup, maxWorkers);
+		client.start(connectionID, isTLS, isEpoll, "127.0.0.1", port, ks, ts, config, listenerWrapper, listenerWrapper, workerPool, acceptorGroup, clientGroup, maxWorkers);
 	}
 	
 	protected static void sendMessage(String sourceID,String messageID, SubmitSm submitSm)

@@ -14,6 +14,6 @@ public class ParsingTest {
 	{
 		String date = "250430115314000-";
 		Date parsedDate = SmppHelper.parseSmppDate(date);
-		assertEquals(parsedDate.getTime(),1748649194000L);
+		assertEquals(parsedDate.getTime(), 1746013994000L);
 	}
 }

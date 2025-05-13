@@ -9,10 +9,7 @@ import java.net.InetSocketAddress;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.mobius.software.common.dal.timers.CountableQueue;
-import com.mobius.software.common.dal.timers.PeriodicQueuedTasks;
-import com.mobius.software.common.dal.timers.Task;
-import com.mobius.software.common.dal.timers.Timer;
+import com.mobius.software.common.dal.timers.WorkerPool;
 import com.mobius.software.protocols.smpp.BaseBind;
 import com.mobius.software.protocols.smpp.BaseBindResp;
 import com.mobius.software.protocols.smpp.MessageStatus;
@@ -47,13 +44,11 @@ public class SmppServer
     private final SmppServerConfiguration configuration;
     private final SmppServerHandler serverHandler;
     
-	private CountableQueue<Task> mainQueue;
-    private PeriodicQueuedTasks<Timer> timersQueue;
+	private WorkerPool workerPool;
     
-	public SmppServer(Boolean isEpoll, SmppServerConfiguration configuration, SmppServerHandler serverHandler, EventLoopGroup acceptorGroup, EventLoopGroup clientGroup, CountableQueue<Task> mainQueue, PeriodicQueuedTasks<Timer> timersQueue)
+	public SmppServer(Boolean isEpoll, SmppServerConfiguration configuration, SmppServerHandler serverHandler, EventLoopGroup acceptorGroup, EventLoopGroup clientGroup, WorkerPool workerPool)
     {
-		this.mainQueue = mainQueue;
-    	this.timersQueue = timersQueue;
+		this.workerPool = workerPool;
         this.configuration = configuration;
         this.serverHandler = serverHandler;
         
@@ -65,7 +60,7 @@ public class SmppServer
         else
         	this.serverBootstrap.channel(NioServerSocketChannel.class);
         
-		this.serverConnector = new SmppServerConnector(this, mainQueue, timersQueue);
+		this.serverConnector = new SmppServerConnector(this, workerPool.getQueue(), workerPool.getPeriodicQueue());
         this.serverBootstrap.childHandler(serverConnector);
         
         this.transcoder = new PduTranscoder();
@@ -176,11 +171,11 @@ public class SmppServer
 	{
 		SmppVersion interfaceVersion = this.autoNegotiateInterfaceVersion(config.getInterfaceVersion());
 
-		SmppSessionImpl session = new SmppSessionImpl(SmppSession.Type.SERVER, config, channel, serverHandler, preparedBindResponse, interfaceVersion, mainQueue, timersQueue);
+		SmppSessionImpl session = new SmppSessionImpl(SmppSession.Type.SERVER, config, channel, serverHandler, preparedBindResponse, interfaceVersion, workerPool);
 
         // create a new wrapper around a session to pass the pdu up the chain
         channel.pipeline().remove(SmppSessionWrapper.NAME);
-		channel.pipeline().addLast(SmppSessionWrapper.NAME, new SmppSessionWrapper(session, this.mainQueue));
+		channel.pipeline().addLast(SmppSessionWrapper.NAME, new SmppSessionWrapper(session, this.workerPool.getQueue()));
         
         this.serverHandler.sessionCreated(session, preparedBindResponse);                
     }
