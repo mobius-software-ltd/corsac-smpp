@@ -24,9 +24,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.mobius.software.protocols.smpp.PduRequest;
-import com.mobius.software.protocols.smpp.exceptions.RecoverablePduException;
 import com.mobius.software.protocols.smpp.exceptions.SmppChannelException;
-import com.mobius.software.protocols.smpp.exceptions.UnrecoverablePduException;
 
 public class RequestBindTimeoutTask implements RequestTimeoutInterface
 {
@@ -63,9 +61,9 @@ public class RequestBindTimeoutTask implements RequestTimeoutInterface
 			{
 				session.sendRequest(bindRequest, timestamp.get() - startTime);
 			}
-			catch (RecoverablePduException | UnrecoverablePduException | SmppChannelException e)
+			catch (SmppChannelException e)
 			{
-				e.printStackTrace();
+				logger.warn("An exception occured while sending bind request: " + e);
 			}
 		}
 	}

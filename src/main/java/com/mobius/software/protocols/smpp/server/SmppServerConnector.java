@@ -9,7 +9,9 @@ import javax.net.ssl.SSLEngine;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.mobius.software.common.dal.timers.CountableQueue;
 import com.mobius.software.common.dal.timers.PeriodicQueuedTasks;
+import com.mobius.software.common.dal.timers.Task;
 import com.mobius.software.common.dal.timers.Timer;
 import com.mobius.software.protocols.smpp.channel.ChannelUtil;
 import com.mobius.software.protocols.smpp.channel.SmppMessageDecoder;
@@ -29,12 +31,14 @@ public class SmppServerConnector extends ChannelInboundHandlerAdapter
 	public static Logger logger=LogManager.getLogger(SmppServerConnector.class);
 	
 	private SmppServer server;
+	private CountableQueue<Task> mainQueue;
 	private PeriodicQueuedTasks<Timer> timersQueue;
 	
-	public SmppServerConnector(SmppServer server,PeriodicQueuedTasks<Timer> timersQueue)
+	public SmppServerConnector(SmppServer server, CountableQueue<Task> mainQueue, PeriodicQueuedTasks<Timer> timersQueue)
 	{
-		this.server=server;
-		this.timersQueue=timersQueue;
+		this.server = server;
+		this.mainQueue = mainQueue;
+		this.timersQueue = timersQueue;
 	}
 	
 	@Override
@@ -57,6 +61,6 @@ public class SmppServerConnector extends ChannelInboundHandlerAdapter
 
 		String channelName = ChannelUtil.createChannelName(channel);
         UnboundSmppSession session = new UnboundSmppSession(channelName, channel, server, timersQueue);
-		channel.pipeline().addLast(SmppSessionWrapper.NAME, new SmppSessionWrapper(session));
+		channel.pipeline().addLast(SmppSessionWrapper.NAME, new SmppSessionWrapper(session, this.mainQueue));
 	}		
 }

@@ -29,8 +29,8 @@ import javax.net.ssl.SSLEngine;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.mobius.software.common.dal.timers.PeriodicQueuedTasks;
-import com.mobius.software.common.dal.timers.Timer;
+import com.mobius.software.common.dal.timers.RunnableTask;
+import com.mobius.software.common.dal.timers.WorkerPool;
 import com.mobius.software.protocols.smpp.BaseBind;
 import com.mobius.software.protocols.smpp.BindReceiver;
 import com.mobius.software.protocols.smpp.BindTransceiver;
@@ -90,21 +90,22 @@ public class SmppClient
 	private ConcurrentHashMap<String, SmppSessionImpl> pendingSessions = new ConcurrentHashMap<String, SmppSessionImpl>();
 	private Integer clientsPoolSize;
 	private AtomicInteger wheel = new AtomicInteger(0);
-	private PeriodicQueuedTasks<Timer> timersQueue;
 	private SmppSessionConfiguration configuration;
 	private SmppSessionListener callbackInterface;
 	private SmppClientConnector clientConnector = new SmppClientConnector(this);
 	private Bootstrap bootstrap;
 	private Long enquiryTimeout;
+	
+	private WorkerPool workerPool;
 
 	private AtomicBoolean isStarted = new AtomicBoolean(false);
 
-	public SmppClient(Boolean isEpoll, SmppSessionListener callbackInterface, Integer maxChannels, SmppSessionConfiguration configuration, Long enquiryTimeout, EventLoopGroup acceptorGroup, PeriodicQueuedTasks<Timer> timersQueue)
+	public SmppClient(Boolean isEpoll, SmppSessionListener callbackInterface, Integer maxChannels, SmppSessionConfiguration configuration, Long enquiryTimeout, EventLoopGroup acceptorGroup, WorkerPool workerPool)
 	{
-		this(isEpoll, callbackInterface, maxChannels, configuration, enquiryTimeout, acceptorGroup, timersQueue, null, null);
+		this(isEpoll, callbackInterface, maxChannels, configuration, enquiryTimeout, acceptorGroup, workerPool, null, null);
 	}
 
-	public SmppClient(Boolean isEpoll, SmppSessionListener callbackInterface, Integer maxChannels, SmppSessionConfiguration configuration, Long enquiryTimeout, EventLoopGroup acceptorGroup, PeriodicQueuedTasks<Timer> timersQueue, String localHost, Integer localPort)
+	public SmppClient(Boolean isEpoll, SmppSessionListener callbackInterface, Integer maxChannels, SmppSessionConfiguration configuration, Long enquiryTimeout, EventLoopGroup acceptorGroup, WorkerPool workerPool, String localHost, Integer localPort)
 	{
 		if (maxChannels != null)
 			this.clientsPoolSize = maxChannels;
@@ -113,7 +114,7 @@ public class SmppClient
 
 		this.configuration = configuration;
 		this.loop = acceptorGroup;
-		this.timersQueue = timersQueue;
+		this.workerPool = workerPool;
 		this.callbackInterface = callbackInterface;
 		this.enquiryTimeout = enquiryTimeout;
 
@@ -181,7 +182,7 @@ public class SmppClient
 		if (!isStarted.get())
 			return;
 
-		bootstrap.connect().addListener(new ClientChannelConnectListener(timersQueue, this, configuration));
+		bootstrap.connect().addListener(new ClientChannelConnectListener(workerPool.getPeriodicQueue(), this, configuration));
 	}
 
 	public void startChannel(SmppSessionImpl oldSession)
@@ -216,7 +217,7 @@ public class SmppClient
 			oldSession.getChannel().close();
 
 		DelayedReconnectTimer reconnectTimer = new DelayedReconnectTimer(this, configuration);
-		timersQueue.store(reconnectTimer.getRealTimestamp(), reconnectTimer);
+		workerPool.getPeriodicQueue().store(reconnectTimer.getRealTimestamp(), reconnectTimer);
 	}
 
 	public Long getEnquiryTimeout()
@@ -258,62 +259,69 @@ public class SmppClient
 	}
 
 	@SuppressWarnings("rawtypes")
-	public void send(Pdu pdu) throws RecoverablePduException, UnrecoverablePduException, SmppTimeoutException, SmppChannelException
+	public void send(Pdu pdu, String requestID) throws RecoverablePduException, UnrecoverablePduException, SmppTimeoutException, SmppChannelException
 	{
-		try
+		if (session.size() == 0)
+			throw new SmppChannelException("no available channels found");
+
+		Iterator<SmppSessionImpl> iterator = session.values().iterator();
+		int startEntry = wheel.incrementAndGet() % session.size();
+		while (startEntry > 0)
 		{
-			if (session.size() == 0)
-				throw new SmppChannelException("no available channels found");
-
-			Iterator<SmppSessionImpl> iterator = session.values().iterator();
-			int startEntry = wheel.incrementAndGet() % session.size();
-			while (startEntry > 0)
+			if (iterator.hasNext())
 			{
-				if (iterator.hasNext())
-				{
-					iterator.next();
-					startEntry--;
-				}
-				else
-				{
-					if (session.size() == 0)
-						throw new SmppChannelException("no available channels found");
-
-					iterator = session.values().iterator();
-
-				}
+				iterator.next();
+				startEntry--;
 			}
-
-			int retries = session.size();
-			while (retries > 0)
+			else
 			{
-				if (iterator.hasNext())
-				{
-					SmppSessionImpl currSession = iterator.next();
-					if (currSession != null && currSession.isBound())
-					{
-						if (pdu.isRequest())
-							currSession.sendRequestPdu((PduRequest) pdu);
-						else
-							currSession.sendResponsePdu((PduResponse) pdu);
+				if (session.size() == 0)
+					throw new SmppChannelException("no available channels found");
 
-						return;
-					}
-					else
-						retries--;
-				}
-				else
-				{
-					if (session.size() == 0)
-						throw new SmppChannelException("no available channels found");
+				iterator = session.values().iterator();
 
-					iterator = session.values().iterator();
-				}
 			}
 		}
-		catch (InterruptedException e)
-		{
 
+		int retries = session.size();
+		while (retries > 0)
+		{
+			if (iterator.hasNext())
+			{
+				SmppSessionImpl currSession = iterator.next();
+				if (currSession != null && currSession.isBound())
+				{
+					this.workerPool.addTaskLast(new RunnableTask(new Runnable()
+					{
+						@Override
+						public void run()
+						{
+							try
+							{
+								if (pdu.isRequest())
+									currSession.sendRequestPdu((PduRequest) pdu);
+								else
+									currSession.sendResponsePdu((PduResponse) pdu);
+							}
+							catch (Exception e)
+							{
+								logger.error("An exception occured during sending pdu request/response," + e);
+							}
+						}
+					}, requestID));
+
+					return;
+				}
+				else
+					retries--;
+			}
+			else
+			{
+				if (session.size() == 0)
+					throw new SmppChannelException("no available channels found");
+
+				iterator = session.values().iterator();
+			}
 		}
 
 		throw new SmppChannelException("no available channels found");
@@ -321,7 +329,7 @@ public class SmppClient
 
 	protected SmppSessionImpl createSession(Channel channel, SmppSessionConfiguration config, SmppSessionHandler sessionHandler) throws SmppTimeoutException, SmppChannelException, InterruptedException
 	{
-		SmppSessionImpl session = new SmppSessionImpl(SmppSession.Type.CLIENT, config, channel, sessionHandler, timersQueue);
+		SmppSessionImpl session = new SmppSessionImpl(SmppSession.Type.CLIENT, config, channel, sessionHandler, this.workerPool);
 
 		// add SSL handler
 		if (config.isUseSsl())
@@ -343,7 +351,7 @@ public class SmppClient
 		}
 
 		channel.pipeline().addLast(SmppMessageDecoder.NAME, new SmppMessageDecoder(session.getTranscoder()));
-		channel.pipeline().addLast(SmppSessionWrapper.NAME, new SmppSessionWrapper(session));
+		channel.pipeline().addLast(SmppSessionWrapper.NAME, new SmppSessionWrapper(session, this.workerPool.getQueue()));
 		return session;
 	}
 

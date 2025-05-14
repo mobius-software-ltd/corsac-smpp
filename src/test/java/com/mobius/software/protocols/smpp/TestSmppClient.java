@@ -8,8 +8,9 @@ import java.security.KeyStore;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.mobius.software.common.dal.timers.PeriodicQueuedTasks;
-import com.mobius.software.common.dal.timers.Timer;
+import org.bson.types.ObjectId;
+
+import com.mobius.software.common.dal.timers.WorkerPool;
 import com.mobius.software.protocols.smpp.channel.SmppSessionConfiguration;
 import com.mobius.software.protocols.smpp.channel.SmppVersion;
 import com.mobius.software.protocols.smpp.channel.SslConfiguration;
@@ -45,7 +46,7 @@ public class TestSmppClient
 	{		
 	}
 	
-	public void start(String name, Boolean isTLS, Boolean isEpoll, String host, Integer port,KeyStore keyStore,KeyStore trustStore,SmppChannelConfig config, SmppSessionListener smppListener, ConnectionListener listener,PeriodicQueuedTasks<Timer> timersQueue,EventLoopGroup acceptorGroup,EventLoopGroup clientGroup,Integer workers) throws ClassNotFoundException, GeneralSecurityException, IOException, SmppChannelException
+	public void start(String name, Boolean isTLS, Boolean isEpoll, String host, Integer port, KeyStore keyStore, KeyStore trustStore, SmppChannelConfig config, SmppSessionListener smppListener, ConnectionListener listener, WorkerPool workerPool, EventLoopGroup acceptorGroup, EventLoopGroup clientGroup, Integer workers) throws ClassNotFoundException, GeneralSecurityException, IOException, SmppChannelException
 	{
 		this.listener=listener;
 		if(clients.contains(name))
@@ -107,7 +108,7 @@ public class TestSmppClient
 		else
 			configuration.setUseSsl(false);
 		
-		SmppClient client=new SmppClient(isEpoll, smppListener, config.getMaxChannels(), configuration, config.getEnquireLinkInterval(), acceptorGroup, timersQueue);
+		SmppClient client = new SmppClient(isEpoll, smppListener, config.getMaxChannels(), configuration, config.getEnquireLinkInterval(), acceptorGroup, workerPool);
 		clients.put(name, client);
 		client.startClient();
 	}
@@ -140,7 +141,7 @@ public class TestSmppClient
 		try
 		{
 			submitSm.setReferenceObject(messageID);
-			client.send(submitSm);
+			client.send(submitSm, new ObjectId().toHexString());
 		}
 		catch(Exception ex)
 		{
@@ -160,7 +161,7 @@ public class TestSmppClient
 		try
 		{
 			deliverSm.setReferenceObject(messageID);
-			client.send(deliverSm);
+			client.send(deliverSm, new ObjectId().toHexString());
 		}
 		catch(Exception ex)
 		{
