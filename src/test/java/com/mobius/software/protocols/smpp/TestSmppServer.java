@@ -8,8 +8,7 @@ import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.mobius.software.common.dal.timers.PeriodicQueuedTasks;
-import com.mobius.software.common.dal.timers.Timer;
+import com.mobius.software.common.dal.timers.WorkerPool;
 import com.mobius.software.protocols.smpp.channel.SmppServerConfiguration;
 import com.mobius.software.protocols.smpp.channel.SmppServerSession;
 import com.mobius.software.protocols.smpp.channel.SmppSessionImpl;
@@ -35,7 +34,7 @@ public class TestSmppServer
 	{		
 	}
 	
-	public void start(String name, Boolean isTLS,Boolean isEpoll,String host, Integer port,KeyStore keyStore,KeyStore trustStore,SmppChannelConfig config,SmppSessionListener smppListener, ConnectionListener listener,PeriodicQueuedTasks<Timer> timersQueue,EventLoopGroup acceptorGroup,EventLoopGroup clientGroup,Integer workers) throws ClassNotFoundException, GeneralSecurityException, IOException, SmppChannelException
+	public void start(String name, Boolean isTLS, Boolean isEpoll, String host, Integer port, KeyStore keyStore, KeyStore trustStore, SmppChannelConfig config, SmppSessionListener smppListener, ConnectionListener listener, WorkerPool workerPool, EventLoopGroup acceptorGroup, EventLoopGroup clientGroup, Integer workers) throws ClassNotFoundException, GeneralSecurityException, IOException, SmppChannelException
 	{
 		this.listener=listener;
 		
@@ -96,7 +95,7 @@ public class TestSmppServer
 		else
 			configuration.setUseSsl(false);
 		
-		server=new SmppServer(isEpoll, configuration, new SmppServerHandlerImpl(smppListener, timersQueue, sessionMap, timersMap, isTLS, config.getEnquireLinkInterval()),acceptorGroup,clientGroup,timersQueue);
+		server = new SmppServer(isEpoll, configuration, new SmppServerHandlerImpl(smppListener, workerPool.getPeriodicQueue(), sessionMap, timersMap, isTLS, config.getEnquireLinkInterval()), acceptorGroup, clientGroup, workerPool);
 		server.start();
 	}
 

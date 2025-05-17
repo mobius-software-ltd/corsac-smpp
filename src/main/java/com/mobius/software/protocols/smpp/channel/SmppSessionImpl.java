@@ -9,8 +9,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bson.types.ObjectId;
 
-import com.mobius.software.common.dal.timers.PeriodicQueuedTasks;
-import com.mobius.software.common.dal.timers.Timer;
+import com.mobius.software.common.dal.timers.RunnableTask;
+import com.mobius.software.common.dal.timers.WorkerPool;
 import com.mobius.software.protocols.smpp.BaseBind;
 import com.mobius.software.protocols.smpp.BaseBindResp;
 import com.mobius.software.protocols.smpp.MessageStatus;
@@ -63,23 +63,23 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 	private SmppVersion interfaceVersion;
 
 	private SmppServerHandler server;
-	private PeriodicQueuedTasks<Timer> timersQueue;
+	private WorkerPool workerPool;
 
 	private BaseBindResp preparedBindResponse;
 
 	private ConcurrentHashMap<Integer, RequestTimeoutInterface> pendingRequests = new ConcurrentHashMap<Integer, RequestTimeoutInterface>();
 	private String id;
 
-	public SmppSessionImpl(Type localType, SmppSessionConfiguration configuration, Channel channel, SmppServerHandler server, BaseBindResp preparedBindResponse, SmppVersion interfaceVersion, PeriodicQueuedTasks<Timer> timersQueue)
+	public SmppSessionImpl(Type localType, SmppSessionConfiguration configuration, Channel channel, SmppServerHandler server, BaseBindResp preparedBindResponse, SmppVersion interfaceVersion, WorkerPool workerPool)
 	{
-		this(localType, configuration, channel, (SmppSessionHandler) null, timersQueue);
+		this(localType, configuration, channel, (SmppSessionHandler) null, workerPool);
 		this.state.set(STATE_BINDING);
 		this.server = server;
 		this.preparedBindResponse = preparedBindResponse;
 		this.interfaceVersion = interfaceVersion;
 	}
 
-	public SmppSessionImpl(Type localType, SmppSessionConfiguration configuration, Channel channel, SmppSessionHandler sessionHandler, PeriodicQueuedTasks<Timer> timersQueue)
+	public SmppSessionImpl(Type localType, SmppSessionConfiguration configuration, Channel channel, SmppSessionHandler sessionHandler, WorkerPool workerPool)
 	{
 		this.localType = localType;
 		this.state = new AtomicInteger(STATE_OPEN);
@@ -88,7 +88,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 		this.boundTime = new AtomicLong(0);
 		this.sessionHandler = (sessionHandler == null ? new EmptySmppSessionHandler() : sessionHandler);
 		this.sequenceNumber = new SequenceNumber();
-		this.timersQueue = timersQueue;
+		this.workerPool = workerPool;
 		this.transcoder = new PduTranscoder();
 
 		this.server = null;
@@ -304,7 +304,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 			}
 			catch (Exception ex)
 			{
-				ex.printStackTrace();
+				logger.warn("An exception occured while firing pru request received: " + ex);
 			}
 		}
 		else
@@ -392,13 +392,11 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 	}
 
 	@SuppressWarnings("rawtypes")
-	public void sendRequest(PduRequest request, long timeoutInMillis) throws RecoverablePduException, UnrecoverablePduException, SmppChannelException
+	public void sendRequest(PduRequest request, long timeoutInMillis) throws SmppChannelException
 	{
 		if (!request.hasSequenceNumberAssigned())
 			request.setSequenceNumber(this.sequenceNumber.next());
 
-		ByteBuf buffer = transcoder.encode(request);
-		RequestTimeoutTask timeoutTask = new RequestTimeoutTask(this, request, timeoutInMillis);
 		if (channel.isActive())
 		{
 			if (this.sessionHandler instanceof SmppSessionListener)
@@ -410,22 +408,40 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 				}
 			}
 
-			pendingRequests.put(request.getSequenceNumber(), timeoutTask);
-			timersQueue.store(timeoutTask.getRealTimestamp(), timeoutTask);
-			channel.writeAndFlush(buffer);
+			this.workerPool.addTaskLast(new RunnableTask(new Runnable()
+			{
+				@Override
+				public void run()
+				{
+
+					ByteBuf buffer;
+					try
+					{
+						buffer = transcoder.encode(request);
+					}
+					catch (UnrecoverablePduException | RecoverablePduException e)
+					{
+						logger.warn("An exception occured while encoding request: " + e);
+						return;
+					}
+
+					RequestTimeoutTask timeoutTask = new RequestTimeoutTask(SmppSessionImpl.this, request, timeoutInMillis);
+					pendingRequests.put(request.getSequenceNumber(), timeoutTask);
+					workerPool.getPeriodicQueue().store(timeoutTask.getRealTimestamp(), timeoutTask);
+					channel.writeAndFlush(buffer);
+				}
+			}, this.id));
 		}
 		else
 			throw new SmppChannelException("Channel is not active");
 	}
 
 	@SuppressWarnings("rawtypes")
-	public void sendBindRequest(PduRequest request, long timeoutInMillis) throws RecoverablePduException, UnrecoverablePduException, SmppChannelException
+	public void sendBindRequest(PduRequest request, long timeoutInMillis) throws SmppChannelException
 	{
 		if (!request.hasSequenceNumberAssigned())
 			request.setSequenceNumber(this.sequenceNumber.next());
 
-		ByteBuf buffer = transcoder.encode(request);
-		RequestBindTimeoutTask timeoutTask = new RequestBindTimeoutTask(this, request, timeoutInMillis);
 		if (channel.isActive())
 		{
 			if (this.sessionHandler instanceof SmppSessionListener)
@@ -437,9 +453,28 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 				}
 			}
 
-			pendingRequests.put(request.getSequenceNumber(), timeoutTask);
-			timersQueue.store(timeoutTask.getRealTimestamp(), timeoutTask);
-			channel.writeAndFlush(buffer);
+			this.workerPool.addTaskLast(new RunnableTask(new Runnable()
+			{
+				@Override
+				public void run()
+				{
+					ByteBuf buffer;
+					try
+					{
+						buffer = transcoder.encode(request);
+					}
+					catch (UnrecoverablePduException | RecoverablePduException e)
+					{
+						logger.warn("An exception occured while encoding bind request: " + e);
+						return;
+					}
+
+					RequestBindTimeoutTask timeoutTask = new RequestBindTimeoutTask(SmppSessionImpl.this, request, timeoutInMillis);
+					pendingRequests.put(request.getSequenceNumber(), timeoutTask);
+					workerPool.getPeriodicQueue().store(timeoutTask.getRealTimestamp(), timeoutTask);
+					channel.writeAndFlush(buffer);
+				}
+			}, this.id));
 		}
 		else
 			throw new SmppChannelException("Channel is not active");
@@ -480,12 +515,12 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 			logger.info("Session channel is already closed, not going to unbind");
 	}
 
-	public void sendRequestPdu(PduRequest<?> request) throws RecoverablePduException, UnrecoverablePduException, SmppTimeoutException, SmppChannelException, InterruptedException
+	public void sendRequestPdu(PduRequest<?> request) throws SmppTimeoutException, SmppChannelException
 	{
 		sendRequest(request, configuration.getRequestExpiryTimeout());
 	}
 
-	public void sendResponsePdu(PduResponse response) throws RecoverablePduException, UnrecoverablePduException, SmppChannelException, InterruptedException
+	public void sendResponsePdu(PduResponse response) throws SmppChannelException
 	{
 		if (!response.hasSequenceNumberAssigned())
 		{
@@ -501,9 +536,28 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 			}
 		}
 
-		ByteBuf buffer = transcoder.encode(response);
 		if (channel.isActive())
-			channel.writeAndFlush(buffer);
+		{
+			this.workerPool.addTaskLast(new RunnableTask(new Runnable()
+			{
+				@Override
+				public void run()
+				{
+					ByteBuf buffer;
+					try
+					{
+						buffer = transcoder.encode(response);
+					}
+					catch (UnrecoverablePduException | RecoverablePduException e)
+					{
+						logger.warn("An exception occured while encoding response: " + e);
+						return;
+					}
+
+					channel.writeAndFlush(buffer);
+				}
+			}, this.id));
+		}
 		else
 			throw new SmppChannelException("Channel is not active");
 	}
