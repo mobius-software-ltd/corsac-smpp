@@ -142,7 +142,7 @@ public class SmppHelper
 	{
 		StringBuilder sb = new StringBuilder();
 
-		Calendar calendar=GregorianCalendar.getInstance();
+		Calendar calendar=GregorianCalendar.getInstance(TimeZone.getTimeZone("UTC"));
 		calendar.setTimeInMillis(date);
 		
 		int year = calendar.get(Calendar.YEAR)%100;
