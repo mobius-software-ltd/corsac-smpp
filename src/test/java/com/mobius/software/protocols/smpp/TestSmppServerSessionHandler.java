@@ -655,7 +655,7 @@ public class TestSmppServerSessionHandler implements SmppSessionHandler
 	{
 		try
 		{
-			serverSession.sendResponsePdu(response);
+			serverSession.sendResponsePdu(response, ((SmppSessionImpl) serverSession).getId());
 		}
 		catch(Exception ex)
 		{

@@ -26,6 +26,7 @@ import com.mobius.software.common.dal.timers.PeriodicQueuedTasks;
 import com.mobius.software.common.dal.timers.Timer;
 import com.mobius.software.protocols.smpp.EnquireLink;
 import com.mobius.software.protocols.smpp.channel.SmppSession;
+import com.mobius.software.protocols.smpp.channel.SmppSessionImpl;
 
 public class EnquiryTimer implements Timer 
 {
@@ -54,7 +55,7 @@ public class EnquiryTimer implements Timer
 			EnquireLink enquireLink=new EnquireLink();
 			try
 			{
-				session.sendRequestPdu(enquireLink);
+				session.sendRequestPdu(enquireLink, ((SmppSessionImpl) session).getId());
 			}
 			catch(Exception ex)
 			{

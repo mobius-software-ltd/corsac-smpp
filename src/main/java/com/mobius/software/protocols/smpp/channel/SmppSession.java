@@ -82,7 +82,7 @@ public interface SmppSession
     @SuppressWarnings("rawtypes")
 	public void bind(BaseBind request,long timeoutMillis) throws RecoverablePduException, UnrecoverablePduException, SmppTimeoutException, SmppChannelException, InterruptedException;
 
-    public void sendRequestPdu(PduRequest<?> request) throws RecoverablePduException, UnrecoverablePduException, SmppTimeoutException, SmppChannelException, InterruptedException;
+	public void sendRequestPdu(PduRequest<?> request, String requestID) throws RecoverablePduException, UnrecoverablePduException, SmppTimeoutException, SmppChannelException, InterruptedException;
 
-    public void sendResponsePdu(PduResponse response) throws RecoverablePduException, UnrecoverablePduException, SmppChannelException, InterruptedException;
+	public void sendResponsePdu(PduResponse response, String responseID) throws RecoverablePduException, UnrecoverablePduException, SmppChannelException, InterruptedException;
 }

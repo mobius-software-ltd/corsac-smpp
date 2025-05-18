@@ -59,7 +59,7 @@ public class RequestBindTimeoutTask implements RequestTimeoutInterface
 			session.expired(bindRequest);
 			try
 			{
-				session.sendRequest(bindRequest, timestamp.get() - startTime);
+				session.sendRequest(bindRequest, timestamp.get() - startTime, session.getId());
 			}
 			catch (SmppChannelException e)
 			{

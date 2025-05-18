@@ -29,7 +29,6 @@ import javax.net.ssl.SSLEngine;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.mobius.software.common.dal.timers.RunnableTask;
 import com.mobius.software.common.dal.timers.WorkerPool;
 import com.mobius.software.protocols.smpp.BaseBind;
 import com.mobius.software.protocols.smpp.BindReceiver;
@@ -259,7 +258,7 @@ public class SmppClient
 	}
 
 	@SuppressWarnings("rawtypes")
-	public void send(Pdu pdu, String requestID) throws RecoverablePduException, UnrecoverablePduException, SmppTimeoutException, SmppChannelException
+	public void send(Pdu pdu, String pduID) throws RecoverablePduException, UnrecoverablePduException, SmppTimeoutException, SmppChannelException
 	{
 		if (session.size() == 0)
 			throw new SmppChannelException("no available channels found");
@@ -291,24 +290,17 @@ public class SmppClient
 				SmppSessionImpl currSession = iterator.next();
 				if (currSession != null && currSession.isBound())
 				{
-					this.workerPool.addTaskLast(new RunnableTask(new Runnable()
+					try
 					{
-						@Override
-						public void run()
-						{
-							try
-							{
-								if (pdu.isRequest())
-									currSession.sendRequestPdu((PduRequest) pdu);
-								else
-									currSession.sendResponsePdu((PduResponse) pdu);
-							}
-							catch (Exception e)
-							{
-								logger.error("An exception occured during sending pdu request/response," + e);
-							}
-						}
-					}, requestID));
+						if (pdu.isRequest())
+							currSession.sendRequestPdu((PduRequest) pdu, pduID);
+						else
+							currSession.sendResponsePdu((PduResponse) pdu, pduID);
+					}
+					catch (Exception e)
+					{
+						logger.error("An exception occured during sending pdu request/response," + e);
+					}
 
 					return;
 				}

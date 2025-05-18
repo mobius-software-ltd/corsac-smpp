@@ -225,7 +225,7 @@ public class TestSmppServer
 		try
 		{
 			submitSm.setReferenceObject(messageID);
-			current.sendRequestPdu(submitSm);
+			current.sendRequestPdu(submitSm, ((SmppSessionImpl) current).getId());
 		}
 		catch(Exception ex)
 		{
@@ -256,7 +256,7 @@ public class TestSmppServer
 		try
 		{
 			deliverSm.setReferenceObject(messageID);
-			current.sendRequestPdu(deliverSm);
+			current.sendRequestPdu(deliverSm, ((SmppSessionImpl) current).getId());
 		}
 		catch(Exception ex)
 		{
@@ -269,7 +269,7 @@ public class TestSmppServer
 		try
 		{
 			deliverSm.setReferenceObject(messageID);
-			session.sendRequestPdu(deliverSm);
+			session.sendRequestPdu(deliverSm, session.getId());
 		}
 		catch(Exception ex)
 		{

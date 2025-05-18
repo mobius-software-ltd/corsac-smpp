@@ -219,7 +219,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 		this.sessionHandler = sessionHandler;
 		try
 		{
-			this.sendResponsePdu(this.preparedBindResponse);
+			this.sendResponsePdu(this.preparedBindResponse, this.id);
 		}
 		catch (Exception e)
 		{
@@ -392,7 +392,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 	}
 
 	@SuppressWarnings("rawtypes")
-	public void sendRequest(PduRequest request, long timeoutInMillis) throws SmppChannelException
+	public void sendRequest(PduRequest request, long timeoutInMillis, String requestID) throws SmppChannelException
 	{
 		if (!request.hasSequenceNumberAssigned())
 			request.setSequenceNumber(this.sequenceNumber.next());
@@ -430,7 +430,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 					workerPool.getPeriodicQueue().store(timeoutTask.getRealTimestamp(), timeoutTask);
 					channel.writeAndFlush(buffer);
 				}
-			}, this.id));
+			}, requestID));
 		}
 		else
 			throw new SmppChannelException("Channel is not active");
@@ -486,7 +486,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 		if (this.channel.isActive())
 		{
 			this.state.set(STATE_BINDING);
-			sendRequest(request, timeoutInMillis);
+			sendRequest(request, timeoutInMillis, this.id);
 		}
 		else
 		{
@@ -503,7 +503,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 			this.state.set(STATE_UNBINDING);
 			try
 			{
-				sendRequest(unbind, timeoutInMillis);
+				sendRequest(unbind, timeoutInMillis, this.id);
 			}
 			catch (Exception ex)
 			{
@@ -515,12 +515,12 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 			logger.info("Session channel is already closed, not going to unbind");
 	}
 
-	public void sendRequestPdu(PduRequest<?> request) throws SmppTimeoutException, SmppChannelException
+	public void sendRequestPdu(PduRequest<?> request, String requestID) throws SmppTimeoutException, SmppChannelException
 	{
-		sendRequest(request, configuration.getRequestExpiryTimeout());
+		sendRequest(request, configuration.getRequestExpiryTimeout(), requestID);
 	}
 
-	public void sendResponsePdu(PduResponse response) throws SmppChannelException
+	public void sendResponsePdu(PduResponse response, String responseID) throws SmppChannelException
 	{
 		if (!response.hasSequenceNumberAssigned())
 		{
@@ -556,7 +556,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 
 					channel.writeAndFlush(buffer);
 				}
-			}, this.id));
+			}, responseID));
 		}
 		else
 			throw new SmppChannelException("Channel is not active");
