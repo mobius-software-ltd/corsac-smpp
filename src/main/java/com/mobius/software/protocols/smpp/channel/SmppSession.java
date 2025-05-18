@@ -1,4 +1,5 @@
 package com.mobius.software.protocols.smpp.channel;
+import com.mobius.software.common.dal.timers.TaskCallback;
 /*
  * Mobius Software LTD
  * Copyright 2019 - 2023, Mobius Software LTD and individual contributors
@@ -82,7 +83,7 @@ public interface SmppSession
     @SuppressWarnings("rawtypes")
 	public void bind(BaseBind request,long timeoutMillis) throws RecoverablePduException, UnrecoverablePduException, SmppTimeoutException, SmppChannelException, InterruptedException;
 
-	public void sendRequestPdu(PduRequest<?> request, String requestID) throws RecoverablePduException, UnrecoverablePduException, SmppTimeoutException, SmppChannelException, InterruptedException;
+	public void sendRequestPdu(PduRequest<?> request, String requestID, TaskCallback<Exception> callback);
 
-	public void sendResponsePdu(PduResponse response, String responseID) throws RecoverablePduException, UnrecoverablePduException, SmppChannelException, InterruptedException;
+	public void sendResponsePdu(PduResponse response, String responseID, TaskCallback<Exception> callback);
 }

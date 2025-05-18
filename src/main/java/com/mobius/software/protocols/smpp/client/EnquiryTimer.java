@@ -1,4 +1,5 @@
 package com.mobius.software.protocols.smpp.client;
+
 /*
  * Mobius Software LTD
  * Copyright 2019 - 2023, Mobius Software LTD and individual contributors
@@ -23,64 +24,71 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.mobius.software.common.dal.timers.PeriodicQueuedTasks;
+import com.mobius.software.common.dal.timers.TaskCallback;
 import com.mobius.software.common.dal.timers.Timer;
 import com.mobius.software.protocols.smpp.EnquireLink;
 import com.mobius.software.protocols.smpp.channel.SmppSession;
 import com.mobius.software.protocols.smpp.channel.SmppSessionImpl;
 
-public class EnquiryTimer implements Timer 
+public class EnquiryTimer implements Timer
 {
-	public static Logger logger=LogManager.getLogger(EnquiryTimer.class);
-	
+	public static final Logger logger = LogManager.getLogger(EnquiryTimer.class);
+
 	private long startTime;
 	private AtomicLong timestamp;
 	private long timeout;
 	private SmppSession session;
 	private PeriodicQueuedTasks<Timer> timersQueue;
-	
-	public EnquiryTimer(SmppSession session,long timeout,PeriodicQueuedTasks<Timer> timersQueue)
+
+	public EnquiryTimer(SmppSession session, long timeout, PeriodicQueuedTasks<Timer> timersQueue)
 	{
-		this.startTime=System.currentTimeMillis();
-		this.session=session;
-		this.timeout=timeout;
+		this.startTime = System.currentTimeMillis();
+		this.session = session;
+		this.timeout = timeout;
 		this.timestamp = new AtomicLong(System.currentTimeMillis() + timeout);
-		this.timersQueue=timersQueue;
+		this.timersQueue = timersQueue;
 	}
 
 	@Override
-	public void execute() 
+	public void execute()
 	{
-		if(timestamp.get()<Long.MAX_VALUE)
+		if (timestamp.get() < Long.MAX_VALUE)
 		{
-			EnquireLink enquireLink=new EnquireLink();
-			try
+			EnquireLink enquireLink = new EnquireLink();
+
+			session.sendRequestPdu(enquireLink, ((SmppSessionImpl) session).getId(), new TaskCallback<Exception>()
 			{
-				session.sendRequestPdu(enquireLink, ((SmppSessionImpl) session).getId());
-			}
-			catch(Exception ex)
-			{
-				logger.warn("An exception occured while sending request pdu: " + ex);
-			}
-			
+				@Override
+				public void onSuccess()
+				{
+				}
+
+				@Override
+				public void onError(Exception exception)
+				{
+					logger.warn("An exception occured while sending request pdu: " + exception);
+				}
+			});
+
 			this.timestamp.set(System.currentTimeMillis() + timeout);
-			timersQueue.store(getRealTimestamp(),this); 
+			timersQueue.store(getRealTimestamp(), this);
 		}
 	}
 
 	@Override
-	public long getStartTime() 
+	public long getStartTime()
 	{
 		return startTime;
 	}
 
 	@Override
-	public Long getRealTimestamp() 
+	public Long getRealTimestamp()
 	{
 		return timestamp.get();
 	}
 
 	@Override
-	public void stop() 
+	public void stop()
 	{
 		timestamp.set(Long.MAX_VALUE);
 	}

@@ -23,12 +23,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.mobius.software.common.dal.timers.TaskCallback;
 import com.mobius.software.protocols.smpp.PduRequest;
-import com.mobius.software.protocols.smpp.exceptions.SmppChannelException;
 
 public class RequestBindTimeoutTask implements RequestTimeoutInterface
 {
-	public static Logger logger = LogManager.getLogger(RequestBindTimeoutTask.class);
+	public static final Logger logger = LogManager.getLogger(RequestBindTimeoutTask.class);
 
 	private long startTime;
 	private AtomicLong timestamp;
@@ -57,14 +57,20 @@ public class RequestBindTimeoutTask implements RequestTimeoutInterface
 		if (timestamp.get() < Long.MAX_VALUE)
 		{
 			session.expired(bindRequest);
-			try
+
+			session.sendRequest(bindRequest, timestamp.get() - startTime, session.getId(), new TaskCallback<Exception>()
 			{
-				session.sendRequest(bindRequest, timestamp.get() - startTime, session.getId());
-			}
-			catch (SmppChannelException e)
-			{
-				logger.warn("An exception occured while sending bind request: " + e);
-			}
+				@Override
+				public void onSuccess()
+				{
+				}
+
+				@Override
+				public void onError(Exception exception)
+				{
+					logger.warn("An exception occured while sending bind request: " + exception);
+				}
+			});
 		}
 	}
 

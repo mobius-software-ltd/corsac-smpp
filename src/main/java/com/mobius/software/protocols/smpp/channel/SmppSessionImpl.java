@@ -10,6 +10,7 @@ import org.apache.logging.log4j.Logger;
 import org.bson.types.ObjectId;
 
 import com.mobius.software.common.dal.timers.RunnableTask;
+import com.mobius.software.common.dal.timers.TaskCallback;
 import com.mobius.software.common.dal.timers.WorkerPool;
 import com.mobius.software.protocols.smpp.BaseBind;
 import com.mobius.software.protocols.smpp.BaseBindResp;
@@ -49,8 +50,8 @@ import io.netty.channel.Channel;
 
 public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelListener
 {
-	public static Logger logger = LogManager.getLogger(SmppSessionImpl.class);
-	public static Logger networkLogger = LogManager.getLogger("NETWORK");
+	public static final Logger logger = LogManager.getLogger(SmppSessionImpl.class);
+	public static final Logger networkLogger = LogManager.getLogger("NETWORK");
 
 	private final Type localType;
 	private final AtomicInteger state;
@@ -69,6 +70,19 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 
 	private ConcurrentHashMap<Integer, RequestTimeoutInterface> pendingRequests = new ConcurrentHashMap<Integer, RequestTimeoutInterface>();
 	private String id;
+
+	protected final TaskCallback<Exception> dummyCallback = new TaskCallback<Exception>()
+	{
+		@Override
+		public void onSuccess()
+		{
+		}
+
+		@Override
+		public void onError(Exception exception)
+		{
+		}
+	};
 
 	public SmppSessionImpl(Type localType, SmppSessionConfiguration configuration, Channel channel, SmppServerHandler server, BaseBindResp preparedBindResponse, SmppVersion interfaceVersion, WorkerPool workerPool)
 	{
@@ -219,7 +233,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 		this.sessionHandler = sessionHandler;
 		try
 		{
-			this.sendResponsePdu(this.preparedBindResponse, this.id);
+			this.sendResponsePdu(this.preparedBindResponse, this.id, dummyCallback);
 		}
 		catch (Exception e)
 		{
@@ -392,7 +406,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 	}
 
 	@SuppressWarnings("rawtypes")
-	public void sendRequest(PduRequest request, long timeoutInMillis, String requestID) throws SmppChannelException
+	public void sendRequest(PduRequest request, long timeoutInMillis, String requestID, TaskCallback<Exception> callback)
 	{
 		if (!request.hasSequenceNumberAssigned())
 			request.setSequenceNumber(this.sequenceNumber.next());
@@ -404,6 +418,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 				if (!((SmppSessionListener) this.sessionHandler).firePduDispatch(request))
 				{
 					logger.info("dispatched request PDU discarded: " + request);
+					callback.onSuccess();
 					return;
 				}
 			}
@@ -422,6 +437,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 					catch (UnrecoverablePduException | RecoverablePduException e)
 					{
 						logger.warn("An exception occured while encoding request: " + e);
+						callback.onError(new SmppChannelException("An exception occured while encoding request: " + e));
 						return;
 					}
 
@@ -429,11 +445,15 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 					pendingRequests.put(request.getSequenceNumber(), timeoutTask);
 					workerPool.getPeriodicQueue().store(timeoutTask.getRealTimestamp(), timeoutTask);
 					channel.writeAndFlush(buffer);
+					callback.onSuccess();
 				}
 			}, requestID));
 		}
 		else
-			throw new SmppChannelException("Channel is not active");
+		{
+			callback.onError(new SmppChannelException("Channel is not active"));
+			return;
+		}
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -486,7 +506,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 		if (this.channel.isActive())
 		{
 			this.state.set(STATE_BINDING);
-			sendRequest(request, timeoutInMillis, this.id);
+			sendRequest(request, timeoutInMillis, this.id, dummyCallback);
 		}
 		else
 		{
@@ -503,7 +523,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 			this.state.set(STATE_UNBINDING);
 			try
 			{
-				sendRequest(unbind, timeoutInMillis, this.id);
+				sendRequest(unbind, timeoutInMillis, this.id, dummyCallback);
 			}
 			catch (Exception ex)
 			{
@@ -515,12 +535,12 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 			logger.info("Session channel is already closed, not going to unbind");
 	}
 
-	public void sendRequestPdu(PduRequest<?> request, String requestID) throws SmppTimeoutException, SmppChannelException
+	public void sendRequestPdu(PduRequest<?> request, String requestID, TaskCallback<Exception> callback)
 	{
-		sendRequest(request, configuration.getRequestExpiryTimeout(), requestID);
+		sendRequest(request, configuration.getRequestExpiryTimeout(), requestID, callback);
 	}
 
-	public void sendResponsePdu(PduResponse response, String responseID) throws SmppChannelException
+	public void sendResponsePdu(PduResponse response, String responseID, TaskCallback<Exception> callback)
 	{
 		if (!response.hasSequenceNumberAssigned())
 		{
@@ -532,6 +552,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 			if (!((SmppSessionListener) this.sessionHandler).firePduDispatch(response))
 			{
 				logger.info("dispatched response PDU discarded: " + response);
+				callback.onSuccess();
 				return;
 			}
 		}
@@ -555,11 +576,15 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 					}
 
 					channel.writeAndFlush(buffer);
+					callback.onSuccess();
 				}
 			}, responseID));
 		}
 		else
-			throw new SmppChannelException("Channel is not active");
+		{
+			callback.onError(new SmppChannelException("Channel is not active"));
+			return;
+		}
 	}
 
 	public void close()
