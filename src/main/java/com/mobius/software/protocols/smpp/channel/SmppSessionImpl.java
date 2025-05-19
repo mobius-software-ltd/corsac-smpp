@@ -309,89 +309,108 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 			}
 		}
 
-		if (pdu instanceof PduRequest)
+		RunnableTask processingTask = new RunnableTask(new Runnable()
 		{
-			PduRequest requestPdu = (PduRequest) pdu;
-			try
+			@Override
+			public void run()
 			{
-				this.sessionHandler.firePduRequestReceived(requestPdu);
-			}
-			catch (Exception ex)
-			{
-				logger.warn("An exception occured while firing pru request received: " + ex);
-			}
-		}
-		else
-		{
-			PduResponse responsePdu = (PduResponse) pdu;
-			int receivedPduSeqNum = pdu.getSequenceNumber();
-
-			RequestTimeoutInterface timeoutTask = pendingRequests.remove(receivedPduSeqNum);
-			if (timeoutTask != null)
-			{
-				timeoutTask.stop();
-				switch (timeoutTask.getRequest().getCommandId())
+				if (pdu instanceof PduRequest)
 				{
-					case CMD_ID_UNBIND:
-						close();
-						break;
-					case CMD_ID_BIND_RECEIVER:
-					case CMD_ID_BIND_TRANSCEIVER:
-					case CMD_ID_BIND_TRANSMITTER:
-						BaseBindResp bindResponse = (BaseBindResp) responsePdu;
-						if (bindResponse.getCommandStatus() != MessageStatus.OK)
-						{
-							sessionHandler.fireRecoverablePduException(new RecoverablePduException(timeoutTask.getRequest(), "Bind failed"));
-							return;
-						}
+					PduRequest requestPdu = (PduRequest) pdu;
+					try
+					{
+						sessionHandler.firePduRequestReceived(requestPdu);
+					}
+					catch (Exception ex)
+					{
+						logger.warn("An exception occured while firing pru request received: " + ex);
+					}
+				}
+				else
+				{
+					PduResponse responsePdu = (PduResponse) pdu;
+					int receivedPduSeqNum = pdu.getSequenceNumber();
 
-						Tlv scInterfaceVersion = bindResponse.getOptionalParameter(SmppVersion.TAG_SC_INTERFACE_VERSION);
-
-						if (scInterfaceVersion == null)
-							this.interfaceVersion = SmppVersion.VERSION_3_3;
-						else
+					RequestTimeoutInterface timeoutTask = pendingRequests.remove(receivedPduSeqNum);
+					if (timeoutTask != null)
+					{
+						timeoutTask.stop();
+						switch (timeoutTask.getRequest().getCommandId())
 						{
-							if (scInterfaceVersion.getValue() == null || scInterfaceVersion.getValue().length != 1)
-							{
-								logger.warn("Unable to convert sc_interface_version to a byte value");
-								this.interfaceVersion = SmppVersion.VERSION_3_3;
-							}
-							else
-							{
-								SmppVersion tempInterfaceVersion = SmppVersion.fromInt(scInterfaceVersion.getValue()[0]);
-								if (tempInterfaceVersion.getValue() >= SmppVersion.VERSION_3_4.getValue())
-									this.interfaceVersion = SmppVersion.VERSION_3_4;
+							case CMD_ID_UNBIND:
+								close();
+								break;
+							case CMD_ID_BIND_RECEIVER:
+							case CMD_ID_BIND_TRANSCEIVER:
+							case CMD_ID_BIND_TRANSMITTER:
+								BaseBindResp bindResponse = (BaseBindResp) responsePdu;
+								if (bindResponse.getCommandStatus() != MessageStatus.OK)
+								{
+									sessionHandler.fireRecoverablePduException(new RecoverablePduException(timeoutTask.getRequest(), "Bind failed"));
+									return;
+								}
+
+								Tlv scInterfaceVersion = bindResponse.getOptionalParameter(SmppVersion.TAG_SC_INTERFACE_VERSION);
+
+								if (scInterfaceVersion == null)
+									interfaceVersion = SmppVersion.VERSION_3_3;
 								else
-									this.interfaceVersion = SmppVersion.VERSION_3_3;
-							}
-						}
+								{
+									if (scInterfaceVersion.getValue() == null || scInterfaceVersion.getValue().length != 1)
+									{
+										logger.warn("Unable to convert sc_interface_version to a byte value");
+										interfaceVersion = SmppVersion.VERSION_3_3;
+									}
+									else
+									{
+										SmppVersion tempInterfaceVersion = SmppVersion.fromInt(scInterfaceVersion.getValue()[0]);
+										if (tempInterfaceVersion.getValue() >= SmppVersion.VERSION_3_4.getValue())
+											interfaceVersion = SmppVersion.VERSION_3_4;
+										else
+											interfaceVersion = SmppVersion.VERSION_3_3;
+									}
+								}
 
-						setBound();
-						this.sessionHandler.fireExpectedPduResponseReceived(timeoutTask.getRequest(), responsePdu);
-						break;
-					default:
-						this.sessionHandler.fireExpectedPduResponseReceived(timeoutTask.getRequest(), responsePdu);
-						break;
+								setBound();
+								sessionHandler.fireExpectedPduResponseReceived(timeoutTask.getRequest(), responsePdu);
+								break;
+							default:
+								sessionHandler.fireExpectedPduResponseReceived(timeoutTask.getRequest(), responsePdu);
+								break;
+						}
+					}
+					else
+						sessionHandler.fireUnexpectedPduResponseReceived(responsePdu);
 				}
 			}
-			else
-				this.sessionHandler.fireUnexpectedPduResponseReceived(responsePdu);
-		}
+
+		}, this.id);
+
+		this.workerPool.addTaskLast(processingTask);
 	}
 
 	public void fireExceptionThrown(Throwable t)
 	{
-		if (t instanceof UnrecoverablePduException)
-			this.sessionHandler.fireUnrecoverablePduException((UnrecoverablePduException) t);
-		else if (t instanceof RecoverablePduException)
-			this.sessionHandler.fireRecoverablePduException((RecoverablePduException) t);
-		else
+		RunnableTask processingTask = new RunnableTask(new Runnable()
 		{
-			if (isUnbinding() || isClosed())
-				logger.debug("Unbind/close was requested, ignoring exception thrown: {}", t);
-			else
-				this.sessionHandler.fireUnknownThrowable(t);
-		}
+			@Override
+			public void run()
+			{
+				if (t instanceof UnrecoverablePduException)
+					sessionHandler.fireUnrecoverablePduException((UnrecoverablePduException) t);
+				else if (t instanceof RecoverablePduException)
+					sessionHandler.fireRecoverablePduException((RecoverablePduException) t);
+				else
+				{
+					if (isUnbinding() || isClosed())
+						logger.debug("Unbind/close was requested, ignoring exception thrown: {}", t);
+					else
+						sessionHandler.fireUnknownThrowable(t);
+				}
+			}
+		}, this.id);
+
+		this.workerPool.addTaskLast(processingTask);
 	}
 
 	public void fireChannelClosed()
@@ -527,7 +546,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 			}
 			catch (Exception ex)
 			{
-				logger.error("An error occured while unbinding, going to close the session");
+				logger.error("An error occured while unbinding, going to close the session, " + ex);
 				close();
 			}
 		}

@@ -345,7 +345,7 @@ public class SmppClient
 		}
 
 		channel.pipeline().addLast(SmppMessageDecoder.NAME, new SmppMessageDecoder(session.getTranscoder()));
-		channel.pipeline().addLast(SmppSessionWrapper.NAME, new SmppSessionWrapper(session, this.workerPool.getQueue()));
+		channel.pipeline().addLast(SmppSessionWrapper.NAME, new SmppSessionWrapper(session));
 		return session;
 	}
 
