@@ -20,8 +20,8 @@ package com.mobius.software.protocols.smpp.server;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.mobius.software.common.dal.timers.PeriodicQueuedTasks;
-import com.mobius.software.common.dal.timers.Timer;
+import com.mobius.software.common.dal.timers.Task;
+import com.mobius.software.common.dal.timers.WorkerPool;
 import com.mobius.software.protocols.smpp.BaseBind;
 import com.mobius.software.protocols.smpp.BaseBindResp;
 import com.mobius.software.protocols.smpp.BindReceiver;
@@ -49,15 +49,17 @@ public class UnboundSmppSession implements SmppSessionChannelListener
     private final Channel channel;
     private final BindTimeoutTask bindTimeoutTask;
     private final SmppServer server;
+	private final WorkerPool workerPool;
    
-    public UnboundSmppSession(String channelName, Channel channel, SmppServer server,PeriodicQueuedTasks<Timer> timersQueue) 
+	public UnboundSmppSession(String channelName, Channel channel, SmppServer server, WorkerPool workerPool)
     {
         this.channelName = channelName;
         this.channel = channel;
         this.server = server;
+		this.workerPool = workerPool;
         
         this.bindTimeoutTask = new BindTimeoutTask(channel,channelName,this.server.getConfiguration().getBindTimeout());
-        timersQueue.store(bindTimeoutTask.getRealTimestamp(), bindTimeoutTask);
+		workerPool.getPeriodicQueue().store(bindTimeoutTask.getRealTimestamp(), bindTimeoutTask);
 		
     }
 
@@ -67,53 +69,68 @@ public class UnboundSmppSession implements SmppSessionChannelListener
     {
     	logger.info("received PDU: " + pdu);
 
-        if (pdu instanceof BaseBind) 
-        {
-            BaseBind bindRequest = (BaseBind)pdu;
-            SmppSessionConfiguration sessionConfiguration = createSessionConfiguration(bindRequest);
-            
-            try 
-            {
-                this.server.bindRequested(sessionConfiguration, bindRequest);
-            } 
-            catch (SmppProcessingException e) 
-            {
-				logger.info("Bind request rejected or failed for connection [" + channelName + "] with error [" + e.getMessage() + "]");
-                BaseBindResp bindResponse = server.createBindResponse(bindRequest, e.getErrorCode());
-                this.sendResponsePdu(bindResponse);
-                closeChannelAndCancelTimer();
-                return;
-            }
+    	Task processingTask = new Task() {
+			@Override
+			public void execute()
+			{
+				if (pdu instanceof BaseBind) 
+		        {
+		            BaseBind bindRequest = (BaseBind)pdu;
+		            SmppSessionConfiguration sessionConfiguration = createSessionConfiguration(bindRequest);
+		            
+		            try 
+		            {
+						server.bindRequested(sessionConfiguration, bindRequest);
+		            } 
+		            catch (SmppProcessingException e) 
+		            {
+						logger.info("Bind request rejected or failed for connection [" + channelName + "] with error [" + e.getMessage() + "]");
+		                BaseBindResp bindResponse = server.createBindResponse(bindRequest, e.getErrorCode());
+						sendResponsePdu(bindResponse);
+		                closeChannelAndCancelTimer();
+		                return;
+		            }
 
-            this.bindTimeoutTask.stop();
-            BaseBindResp preparedBindResponse = server.createBindResponse(bindRequest, MessageStatus.OK);
+					bindTimeoutTask.stop();
+		            BaseBindResp preparedBindResponse = server.createBindResponse(bindRequest, MessageStatus.OK);
 
-            try 
-            {
-                server.createSession(channel, sessionConfiguration, preparedBindResponse);
-            } 
-            catch (SmppProcessingException e) 
-            {
-                logger.warn("Bind request was approved, but createSession failed for connection [" + channelName + "] with error [" + e.getMessage() + "]");
-                BaseBindResp bindResponse = server.createBindResponse(bindRequest, e.getErrorCode());
-                this.sendResponsePdu(bindResponse);
-                closeChannelAndCancelTimer();
-                return;
-            }
-        } 
-        else if (pdu instanceof EnquireLink) 
-        {
-            EnquireLinkResp response = ((EnquireLink) pdu).createResponse();
-            logger.info("Responding to enquire_link with response [" + response + "]");
-            this.sendResponsePdu(response);
-            return;
-        } 
-        else 
-        {
-            logger.warn("Only bind or enquire_link requests are permitted on new connections, closing connection [" + channelName + "]");
-            closeChannelAndCancelTimer();
-            return;
-        }
+		            try 
+		            {
+		                server.createSession(channel, sessionConfiguration, preparedBindResponse);
+		            } 
+		            catch (SmppProcessingException e) 
+		            {
+		                logger.warn("Bind request was approved, but createSession failed for connection [" + channelName + "] with error [" + e.getMessage() + "]");
+		                BaseBindResp bindResponse = server.createBindResponse(bindRequest, e.getErrorCode());
+						sendResponsePdu(bindResponse);
+		                closeChannelAndCancelTimer();
+		                return;
+		            }
+		        } 
+		        else if (pdu instanceof EnquireLink) 
+		        {
+		            EnquireLinkResp response = ((EnquireLink) pdu).createResponse();
+		            logger.info("Responding to enquire_link with response [" + response + "]");
+					sendResponsePdu(response);
+		            return;
+		        } 
+		        else 
+		        {
+		            logger.warn("Only bind or enquire_link requests are permitted on new connections, closing connection [" + channelName + "]");
+		            closeChannelAndCancelTimer();
+		            return;
+		        }
+				
+			}
+
+			@Override
+			public long getStartTime()
+			{
+				return System.currentTimeMillis();
+			}
+		};
+    	
+		this.workerPool.getQueue().offerLast(processingTask);
     }
 
     public void closeChannelAndCancelTimer() 
@@ -126,7 +143,22 @@ public class UnboundSmppSession implements SmppSessionChannelListener
     public void fireExceptionThrown(Throwable t) 
     {
         logger.warn("Exception thrown, closing connection [" + channelName + "]: " + t);
-        closeChannelAndCancelTimer();
+        
+        Task processingTask = new Task() {
+			@Override
+			public void execute()
+			{
+				closeChannelAndCancelTimer();
+			}
+
+			@Override
+			public long getStartTime()
+			{
+				return System.currentTimeMillis();
+			}
+		};
+
+		this.workerPool.getQueue().offerLast(processingTask);
     }
 
     @Override

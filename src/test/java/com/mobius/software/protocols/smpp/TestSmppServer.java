@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.mobius.software.common.dal.timers.TaskCallback;
 import com.mobius.software.common.dal.timers.WorkerPool;
 import com.mobius.software.protocols.smpp.channel.SmppServerConfiguration;
 import com.mobius.software.protocols.smpp.channel.SmppServerSession;
@@ -222,15 +223,21 @@ public class TestSmppServer
 			return;
 		}
 			
-		try
+		submitSm.setReferenceObject(messageID);
+		current.sendRequestPdu(submitSm, ((SmppSessionImpl) current).getId(), new TaskCallback<Exception>()
 		{
-			submitSm.setReferenceObject(messageID);
-			current.sendRequestPdu(submitSm);
-		}
-		catch(Exception ex)
-		{
-			listener.responseReceived(sourceID, messageID, null, MessageStatus.SYSERR);			
-		}
+
+			@Override
+			public void onSuccess()
+			{
+			}
+
+			@Override
+			public void onError(Exception exception)
+			{
+				listener.responseReceived(sourceID, messageID, null, MessageStatus.SYSERR);
+			}
+		});
 	}
 	
 	public void sendDelivery(String sourceID, String messageID, DeliverSm deliverSm) 
@@ -253,27 +260,37 @@ public class TestSmppServer
 			return;
 		}
 			
-		try
+		deliverSm.setReferenceObject(messageID);
+		current.sendRequestPdu(deliverSm, ((SmppSessionImpl) current).getId(), new TaskCallback<Exception>()
 		{
-			deliverSm.setReferenceObject(messageID);
-			current.sendRequestPdu(deliverSm);
-		}
-		catch(Exception ex)
-		{
-			listener.responseReceived(sourceID, messageID, null, MessageStatus.SYSERR);			
-		}
+			@Override
+			public void onSuccess()
+			{
+			}
+
+			@Override
+			public void onError(Exception exception)
+			{
+				listener.responseReceived(sourceID, messageID, null, MessageStatus.SYSERR);
+			}
+		});
 	}
-	
-	public void sendDelivery(String sourceID, String messageID, DeliverSm deliverSm,SmppSessionImpl session) 
+
+	public void sendDelivery(String sourceID, String messageID, DeliverSm deliverSm, SmppSessionImpl session)
 	{
-		try
+		deliverSm.setReferenceObject(messageID);
+		session.sendRequestPdu(deliverSm, session.getId(), new TaskCallback<Exception>()
 		{
-			deliverSm.setReferenceObject(messageID);
-			session.sendRequestPdu(deliverSm);
-		}
-		catch(Exception ex)
-		{
-			listener.responseReceived(sourceID, messageID, null, MessageStatus.SYSERR);			
-		}
+			@Override
+			public void onSuccess()
+			{
+			}
+
+			@Override
+			public void onError(Exception exception)
+			{
+				listener.responseReceived(sourceID, messageID, null, MessageStatus.SYSERR);
+			}
+		});
 	}
 }

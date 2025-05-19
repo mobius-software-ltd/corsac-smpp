@@ -28,6 +28,7 @@ import org.apache.logging.log4j.Logger;
 import org.bson.types.ObjectId;
 
 import com.mobius.software.common.dal.timers.PeriodicQueuedTasks;
+import com.mobius.software.common.dal.timers.TaskCallback;
 import com.mobius.software.common.dal.timers.Timer;
 import com.mobius.software.protocols.smpp.channel.SmppServerSession;
 import com.mobius.software.protocols.smpp.channel.SmppSession;
@@ -653,14 +654,19 @@ public class TestSmppServerSessionHandler implements SmppSessionHandler
 	
 	private void sendResponse(PduResponse response)
 	{
-		try
+		serverSession.sendResponsePdu(response, ((SmppSessionImpl) serverSession).getId(), new TaskCallback<Exception>()
 		{
-			serverSession.sendResponsePdu(response);
-		}
-		catch(Exception ex)
-		{
-			logger.error("An error occured while sending response," + ex.getMessage() + ",response:" + response);
-		}
+			@Override
+			public void onSuccess()
+			{
+			}
+
+			@Override
+			public void onError(Exception exception)
+			{
+				logger.error("An error occured while sending response," + exception.getMessage() + ",response:" + response);
+			}
+		});
 	}
 	
 	private class ResponseCallback implements AsyncCallback<RequestProcessingResult>

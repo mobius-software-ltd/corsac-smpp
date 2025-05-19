@@ -60,7 +60,7 @@ public class SmppServer
         else
         	this.serverBootstrap.channel(NioServerSocketChannel.class);
         
-		this.serverConnector = new SmppServerConnector(this, workerPool.getQueue(), workerPool.getPeriodicQueue());
+		this.serverConnector = new SmppServerConnector(this, workerPool);
         this.serverBootstrap.childHandler(serverConnector);
         
         this.transcoder = new PduTranscoder();
@@ -175,7 +175,7 @@ public class SmppServer
 
         // create a new wrapper around a session to pass the pdu up the chain
         channel.pipeline().remove(SmppSessionWrapper.NAME);
-		channel.pipeline().addLast(SmppSessionWrapper.NAME, new SmppSessionWrapper(session, this.workerPool.getQueue()));
+		channel.pipeline().addLast(SmppSessionWrapper.NAME, new SmppSessionWrapper(session));
         
         this.serverHandler.sessionCreated(session, preparedBindResponse);                
     }

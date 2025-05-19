@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.bson.types.ObjectId;
 
+import com.mobius.software.common.dal.timers.TaskCallback;
 import com.mobius.software.common.dal.timers.WorkerPool;
 import com.mobius.software.protocols.smpp.channel.SmppSessionConfiguration;
 import com.mobius.software.protocols.smpp.channel.SmppVersion;
@@ -138,15 +139,22 @@ public class TestSmppClient
 			return;
 		}
 		
-		try
+		submitSm.setReferenceObject(messageID);
+		client.send(submitSm, new ObjectId().toHexString(), new TaskCallback<Exception>()
 		{
-			submitSm.setReferenceObject(messageID);
-			client.send(submitSm, new ObjectId().toHexString());
-		}
-		catch(Exception ex)
-		{
-			listener.responseReceived(sourceID, messageID, null, MessageStatus.SYSERR);			
-		}
+
+			@Override
+			public void onSuccess()
+			{
+			}
+
+			@Override
+			public void onError(Exception exception)
+			{
+				listener.responseReceived(sourceID, messageID, null, MessageStatus.SYSERR);
+
+			}
+		});
 	}
 	
 	public void sendDelivery(String sourceID, String messageID, DeliverSm deliverSm) 
@@ -158,14 +166,20 @@ public class TestSmppClient
 			return;
 		}
 		
-		try
+		deliverSm.setReferenceObject(messageID);
+		client.send(deliverSm, new ObjectId().toHexString(), new TaskCallback<Exception>()
 		{
-			deliverSm.setReferenceObject(messageID);
-			client.send(deliverSm, new ObjectId().toHexString());
-		}
-		catch(Exception ex)
-		{
-			listener.responseReceived(sourceID, messageID, null, MessageStatus.SYSERR);			
-		}
+
+			@Override
+			public void onSuccess()
+			{
+			}
+
+			@Override
+			public void onError(Exception exception)
+			{
+				listener.responseReceived(sourceID, messageID, null, MessageStatus.SYSERR);
+			}
+		});
 	}		
 }
