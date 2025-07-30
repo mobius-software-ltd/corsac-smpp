@@ -29,7 +29,7 @@ import javax.net.ssl.SSLEngine;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.mobius.software.common.dal.timers.RunnableTask;
+import com.mobius.software.common.dal.timers.TaskCallback;
 import com.mobius.software.common.dal.timers.WorkerPool;
 import com.mobius.software.protocols.smpp.BaseBind;
 import com.mobius.software.protocols.smpp.BindReceiver;
@@ -48,7 +48,6 @@ import com.mobius.software.protocols.smpp.channel.SmppSessionImpl;
 import com.mobius.software.protocols.smpp.channel.SmppSessionWrapper;
 import com.mobius.software.protocols.smpp.channel.SslConfiguration;
 import com.mobius.software.protocols.smpp.channel.SslContextFactory;
-import com.mobius.software.protocols.smpp.exceptions.RecoverablePduException;
 import com.mobius.software.protocols.smpp.exceptions.SmppChannelConnectException;
 import com.mobius.software.protocols.smpp.exceptions.SmppChannelException;
 import com.mobius.software.protocols.smpp.exceptions.SmppTimeoutException;
@@ -82,8 +81,8 @@ import io.netty.handler.ssl.SslHandler;
 
 public class SmppClient
 {
-	public static Logger logger = LogManager.getLogger(SmppClient.class);
-	public static Logger debugLogger = LogManager.getLogger("DEBUG");
+	public static final Logger logger = LogManager.getLogger(SmppClient.class);
+	public static final Logger debugLogger = LogManager.getLogger("DEBUG");
 
 	private EventLoopGroup loop;
 	private ConcurrentHashMap<String, SmppSessionImpl> session = new ConcurrentHashMap<String, SmppSessionImpl>();
@@ -259,10 +258,13 @@ public class SmppClient
 	}
 
 	@SuppressWarnings("rawtypes")
-	public void send(Pdu pdu, String requestID) throws RecoverablePduException, UnrecoverablePduException, SmppTimeoutException, SmppChannelException
+	public void send(Pdu pdu, String pduID, TaskCallback<Exception> callback)
 	{
 		if (session.size() == 0)
-			throw new SmppChannelException("no available channels found");
+		{
+			callback.onError(new SmppChannelException("no available channels found"));
+			return;
+		}
 
 		Iterator<SmppSessionImpl> iterator = session.values().iterator();
 		int startEntry = wheel.incrementAndGet() % session.size();
@@ -276,7 +278,10 @@ public class SmppClient
 			else
 			{
 				if (session.size() == 0)
-					throw new SmppChannelException("no available channels found");
+				{
+					callback.onError(new SmppChannelException("no available channels found"));
+					return;
+				}
 
 				iterator = session.values().iterator();
 
@@ -291,24 +296,10 @@ public class SmppClient
 				SmppSessionImpl currSession = iterator.next();
 				if (currSession != null && currSession.isBound())
 				{
-					this.workerPool.addTaskLast(new RunnableTask(new Runnable()
-					{
-						@Override
-						public void run()
-						{
-							try
-							{
-								if (pdu.isRequest())
-									currSession.sendRequestPdu((PduRequest) pdu);
-								else
-									currSession.sendResponsePdu((PduResponse) pdu);
-							}
-							catch (Exception e)
-							{
-								logger.error("An exception occured during sending pdu request/response," + e);
-							}
-						}
-					}, requestID));
+					if (pdu.isRequest())
+						currSession.sendRequestPdu((PduRequest) pdu, pduID, callback);
+					else
+						currSession.sendResponsePdu((PduResponse) pdu, pduID, callback);
 
 					return;
 				}
@@ -318,13 +309,16 @@ public class SmppClient
 			else
 			{
 				if (session.size() == 0)
-					throw new SmppChannelException("no available channels found");
+				{
+					callback.onError(new SmppChannelException("no available channels found"));
+					return;
+				}
 
 				iterator = session.values().iterator();
 			}
 		}
 
-		throw new SmppChannelException("no available channels found");
+		callback.onError(new SmppChannelException("no available channels found"));
 	}
 
 	protected SmppSessionImpl createSession(Channel channel, SmppSessionConfiguration config, SmppSessionHandler sessionHandler) throws SmppTimeoutException, SmppChannelException, InterruptedException
@@ -351,7 +345,7 @@ public class SmppClient
 		}
 
 		channel.pipeline().addLast(SmppMessageDecoder.NAME, new SmppMessageDecoder(session.getTranscoder()));
-		channel.pipeline().addLast(SmppSessionWrapper.NAME, new SmppSessionWrapper(session, this.workerPool.getQueue()));
+		channel.pipeline().addLast(SmppSessionWrapper.NAME, new SmppSessionWrapper(session));
 		return session;
 	}
 
