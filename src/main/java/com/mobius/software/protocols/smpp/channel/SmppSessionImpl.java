@@ -441,6 +441,10 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 				}
 			}
 
+			String taskID = requestID;
+			if(requestID == null)
+				taskID = id;
+			
 			this.workerPool.addTaskLast(new RunnableTask(new Runnable()
 			{
 				@Override
@@ -465,7 +469,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 					channel.writeAndFlush(buffer);
 					callback.onSuccess();
 				}
-			}, requestID));
+			}, taskID));
 		}
 		else
 		{
@@ -590,6 +594,10 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 
 		if (channel.isActive())
 		{
+			String taskID = responseID;
+			if(responseID==null)
+				taskID = id;
+			
 			this.workerPool.addTaskLast(new RunnableTask(new Runnable()
 			{
 				@Override
@@ -609,7 +617,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 					channel.writeAndFlush(buffer);
 					callback.onSuccess();
 				}
-			}, responseID));
+			}, taskID));
 		}
 		else
 		{
