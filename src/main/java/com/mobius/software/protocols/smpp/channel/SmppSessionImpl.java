@@ -71,19 +71,6 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 	private ConcurrentHashMap<Integer, RequestTimeoutInterface> pendingRequests = new ConcurrentHashMap<Integer, RequestTimeoutInterface>();
 	private String id;
 
-	protected final TaskCallback<Exception> dummyCallback = new TaskCallback<Exception>()
-	{
-		@Override
-		public void onSuccess()
-		{
-		}
-
-		@Override
-		public void onError(Exception exception)
-		{
-		}
-	};
-
 	public SmppSessionImpl(Type localType, SmppSessionConfiguration configuration, Channel channel, SmppServerHandler server, BaseBindResp preparedBindResponse, SmppVersion interfaceVersion, WorkerPool workerPool)
 	{
 		this(localType, configuration, channel, (SmppSessionHandler) null, workerPool);
@@ -233,7 +220,19 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 		this.sessionHandler = sessionHandler;
 		try
 		{
-			this.sendResponsePdu(this.preparedBindResponse, this.id, dummyCallback);
+			this.sendResponsePdu(this.preparedBindResponse, this.id, new TaskCallback<Exception>() 
+			{				
+				@Override
+				public void onSuccess() 
+				{
+				}
+				
+				@Override
+				public void onError(Exception exception) 
+				{
+					logger.error("{}", exception);
+				}
+			});
 		}
 		catch (Exception e)
 		{
@@ -520,12 +519,12 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 	}
 
 	@SuppressWarnings("rawtypes")
-	public void bind(BaseBind request, long timeoutInMillis) throws RecoverablePduException, UnrecoverablePduException, SmppTimeoutException, SmppChannelException, InterruptedException
+	public void bind(BaseBind request, long timeoutInMillis, TaskCallback<Exception> callback) throws RecoverablePduException, UnrecoverablePduException, SmppTimeoutException, SmppChannelException, InterruptedException
 	{
 		if (this.channel.isActive())
 		{
 			this.state.set(STATE_BINDING);
-			sendRequest(request, timeoutInMillis, this.id, dummyCallback);
+			sendRequest(request, timeoutInMillis, this.id, callback);
 		}
 		else
 		{
@@ -542,7 +541,20 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 			this.state.set(STATE_UNBINDING);
 			try
 			{
-				sendRequest(unbind, timeoutInMillis, this.id, dummyCallback);
+				sendRequest(unbind, timeoutInMillis, this.id, new TaskCallback<Exception>() 
+				{					
+					@Override
+					public void onSuccess() 
+					{						
+					}
+					
+					@Override
+					public void onError(Exception exception) 
+					{
+						logger.error("An error occured while unbinding, going to close the session, " + exception);
+						close();
+					}
+				});
 			}
 			catch (Exception ex)
 			{
