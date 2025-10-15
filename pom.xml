@@ -8,7 +8,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.mobius-software.protocols</groupId>
 	<artifactId>smpp</artifactId>
-	<version>1.0.0-27-java11</version>
+	<version>1.0.0-28-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<name>mobius-smpp</name>
@@ -105,7 +105,7 @@
 		<url>https://github.com/mobius-software-ltd/corsac-smpp</url>
 		<connection>scm:git:git://github.com:mobius-software-ltd/corsac-smpp.git</connection>
 		<developerConnection>scm:git:git@github.com:mobius-software-ltd/corsac-smpp.git</developerConnection>		
-	  <tag>smpp-1.0.0-27-java11</tag>
+	  <tag>HEAD</tag>
   </scm>
 
 	<developers>
