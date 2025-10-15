@@ -58,7 +58,7 @@ public class UnboundSmppSession implements SmppSessionChannelListener
         this.server = server;
 		this.workerPool = workerPool;
         
-        this.bindTimeoutTask = new BindTimeoutTask(channel,channelName,this.server.getConfiguration().getBindTimeout());
+        this.bindTimeoutTask = new BindTimeoutTask(channel,channelName,this.server.getConfiguration().getBindTimeout(), "SmppBindTimeoutTask");
 		workerPool.getPeriodicQueue().store(bindTimeoutTask.getRealTimestamp(), bindTimeoutTask);
 		
     }
@@ -128,6 +128,12 @@ public class UnboundSmppSession implements SmppSessionChannelListener
 			{
 				return System.currentTimeMillis();
 			}
+
+			@Override
+			public String printTaskDetails()
+			{
+				return "Task name: SmppSessionprovessingPduTask";
+			}
 		};
     	
 		this.workerPool.getQueue().offerLast(processingTask);
@@ -155,6 +161,12 @@ public class UnboundSmppSession implements SmppSessionChannelListener
 			public long getStartTime()
 			{
 				return System.currentTimeMillis();
+			}
+			
+			@Override
+			public String printTaskDetails()
+			{
+				return "Task name: SmppSession-exceptionThrownTask";
 			}
 		};
 

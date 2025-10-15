@@ -50,7 +50,7 @@ public class ClientChannelConnectListener implements ChannelFutureListener
 		if (!channelFuture.isSuccess()) 
 		{  
 			logger.error("An error occured while connecting to remote address:" + configuration.getHost() + ":" + configuration.getPort());
-			ReconnectionTimer timer=new ReconnectionTimer(channelFuture.channel());
+			ReconnectionTimer timer=new ReconnectionTimer(channelFuture.channel(), "SmppConnectListenerReconectionTimer");
 			timersQueue.store(timer.getRealTimestamp(), timer);			 
 		}   
 	}
@@ -59,10 +59,12 @@ public class ClientChannelConnectListener implements ChannelFutureListener
 	{
 		private Channel channel;
 		private Long realTimestamp=System.currentTimeMillis();
+		private String taskName;
 		
-		public ReconnectionTimer(Channel channel)
+		public ReconnectionTimer(Channel channel, String taskName)
 		{
 			this.channel=channel;
+			this.taskName=taskName;
 		}
 		
 		@Override
@@ -90,6 +92,12 @@ public class ClientChannelConnectListener implements ChannelFutureListener
 		public void stop() 
 		{
 			//NOT USED
+		}
+
+		@Override
+		public String printTaskDetails()
+		{
+			return "Task name: " + taskName;
 		}		   
 	}
 }
