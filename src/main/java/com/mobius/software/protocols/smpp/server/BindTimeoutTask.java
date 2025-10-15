@@ -22,14 +22,16 @@ public class BindTimeoutTask implements Timer
 	private Channel channel;
 	private Long timeout;
 	private String channelName;
+	private String taskName;
 	
-	public BindTimeoutTask(Channel channel,String channelName, long timeout)
+	public BindTimeoutTask(Channel channel,String channelName, long timeout, String taskName)
 	{
 		this.channel=channel;
 		this.channelName=channelName;
 		this.timeout=timeout;
 		this.startTime=System.currentTimeMillis();
 		this.timestamp = new AtomicLong(System.currentTimeMillis() + timeout);
+		this.taskName=taskName;
 	}
 	
 	@Override
@@ -58,5 +60,11 @@ public class BindTimeoutTask implements Timer
 	public void stop() 
 	{
 		timestamp.set(Long.MAX_VALUE);
+	}
+
+	@Override
+	public String printTaskDetails()
+	{
+		return "Task name: " + taskName;
 	}	
 }

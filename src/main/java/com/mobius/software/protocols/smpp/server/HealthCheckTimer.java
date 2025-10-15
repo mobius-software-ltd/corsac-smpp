@@ -20,13 +20,15 @@ public class HealthCheckTimer implements Timer
 	private AtomicLong timestamp;
 	private long timeout;
 	private SmppServerSession session;
+	private String taskName;
 	
-	public HealthCheckTimer(SmppServerSession session,long timeout)
+	public HealthCheckTimer(SmppServerSession session,long timeout, String taskName)
 	{
 		this.startTime=System.currentTimeMillis();
 		this.session=session;
 		this.timeout=timeout;
 		this.timestamp = new AtomicLong(System.currentTimeMillis() + timeout*3);
+		this.taskName=taskName;
 	}
 
 	@Override
@@ -60,5 +62,11 @@ public class HealthCheckTimer implements Timer
 	public void restart()
 	{
 		this.timestamp.set(System.currentTimeMillis() + timeout*3);
+	}
+
+	@Override
+	public String printTaskDetails()
+	{
+		return "Task name: " + taskName;
 	}
 }

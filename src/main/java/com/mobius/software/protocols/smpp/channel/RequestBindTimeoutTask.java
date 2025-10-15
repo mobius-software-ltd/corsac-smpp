@@ -35,14 +35,16 @@ public class RequestBindTimeoutTask implements RequestTimeoutInterface
 	private SmppSessionImpl session;
 	@SuppressWarnings("rawtypes")
 	private PduRequest bindRequest;
+	private String taskName;
 
 	@SuppressWarnings("rawtypes")
-	public RequestBindTimeoutTask(SmppSessionImpl session, PduRequest bindRequest, long timeout)
+	public RequestBindTimeoutTask(SmppSessionImpl session, PduRequest bindRequest, long timeout, String taskName)
 	{
 		this.session = session;
 		this.bindRequest = bindRequest;
 		this.startTime = System.currentTimeMillis();
 		this.timestamp = new AtomicLong(System.currentTimeMillis() + timeout);
+		this.taskName = taskName;
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -90,5 +92,11 @@ public class RequestBindTimeoutTask implements RequestTimeoutInterface
 	public void stop()
 	{
 		timestamp.set(Long.MAX_VALUE);
+	}
+
+	@Override
+	public String printTaskDetails()
+	{
+		return "Task name: " + taskName;
 	}
 }

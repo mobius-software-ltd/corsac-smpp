@@ -83,7 +83,7 @@ public class SmppServerHandlerImpl implements SmppServerHandler
 		HealthCheckTimer timer=null;
 		if(enquireLinkInterval!=null)
 		{
-			timer=new HealthCheckTimer(session, enquireLinkInterval);
+			timer=new HealthCheckTimer(session, enquireLinkInterval,"SmppServer-HealthCheckTimer");
 			timersQueue.store(timer.getRealTimestamp(), timer);
 			
 			ConcurrentHashMap<String, HealthCheckTimer> timerMap=timersMap.get(segments[0]);

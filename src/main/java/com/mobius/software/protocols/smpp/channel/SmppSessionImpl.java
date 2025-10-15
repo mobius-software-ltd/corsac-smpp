@@ -383,7 +383,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 				}
 			}
 
-		}, this.id);
+		}, this.id, "SmppSession-PduReceivedTask");
 
 		this.workerPool.addTaskLast(processingTask);
 	}
@@ -407,7 +407,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 						sessionHandler.fireUnknownThrowable(t);
 				}
 			}
-		}, this.id);
+		}, this.id, "SmppSession-ExceptionThrownTask");
 
 		this.workerPool.addTaskLast(processingTask);
 	}
@@ -463,13 +463,13 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 						return;
 					}
 
-					RequestTimeoutTask timeoutTask = new RequestTimeoutTask(SmppSessionImpl.this, request, timeoutInMillis);
+					RequestTimeoutTask timeoutTask = new RequestTimeoutTask(SmppSessionImpl.this, request, timeoutInMillis, "RequestTimeoutTask");
 					pendingRequests.put(request.getSequenceNumber(), timeoutTask);
 					workerPool.getPeriodicQueue().store(timeoutTask.getRealTimestamp(), timeoutTask);
 					channel.writeAndFlush(buffer);
 					callback.onSuccess();
 				}
-			}, taskID));
+			}, taskID, "SmppSession-SendRequestTask"));
 		}
 		else
 		{
@@ -511,12 +511,12 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 						return;
 					}
 
-					RequestBindTimeoutTask timeoutTask = new RequestBindTimeoutTask(SmppSessionImpl.this, request, timeoutInMillis);
+					RequestBindTimeoutTask timeoutTask = new RequestBindTimeoutTask(SmppSessionImpl.this, request, timeoutInMillis, "RequestBindTimeoutTask");
 					pendingRequests.put(request.getSequenceNumber(), timeoutTask);
 					workerPool.getPeriodicQueue().store(timeoutTask.getRealTimestamp(), timeoutTask);
 					channel.writeAndFlush(buffer);
 				}
-			}, this.id));
+			}, this.id, "SmppSession-SendBindRequestTask"));
 		}
 		else
 			throw new SmppChannelException("Channel is not active");
@@ -617,7 +617,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 					channel.writeAndFlush(buffer);
 					callback.onSuccess();
 				}
-			}, taskID));
+			}, taskID, "SmppSession-SendResponsePduTask"));
 		}
 		else
 		{

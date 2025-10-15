@@ -30,11 +30,13 @@ public class DelayedReconnectTimer implements Timer
 	private Long realTimestamp=System.currentTimeMillis();
 	private SmppConnectionConfiguration configuration;
 	private SmppClient smppClient;
+	private String taskName;
 	
-	public DelayedReconnectTimer(SmppClient smppClient,SmppConnectionConfiguration configuration)
+	public DelayedReconnectTimer(SmppClient smppClient,SmppConnectionConfiguration configuration, String taskName)
 	{
 		this.smppClient=smppClient;
 		this.configuration=configuration;
+		this.taskName=taskName;
 	}
 	
 	@Override
@@ -60,5 +62,11 @@ public class DelayedReconnectTimer implements Timer
 	public void stop() 
 	{
 		//NOT USED
+	}
+
+	@Override
+	public String printTaskDetails()
+	{
+		return "Task name: " + taskName;
 	}		   
 }

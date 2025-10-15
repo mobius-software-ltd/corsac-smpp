@@ -39,14 +39,16 @@ public class EnquiryTimer implements Timer
 	private long timeout;
 	private SmppSession session;
 	private PeriodicQueuedTasks<Timer> timersQueue;
+	private String taskName;
 
-	public EnquiryTimer(SmppSession session, long timeout, PeriodicQueuedTasks<Timer> timersQueue)
+	public EnquiryTimer(SmppSession session, long timeout, PeriodicQueuedTasks<Timer> timersQueue, String taskName)
 	{
 		this.startTime = System.currentTimeMillis();
 		this.session = session;
 		this.timeout = timeout;
 		this.timestamp = new AtomicLong(System.currentTimeMillis() + timeout);
 		this.timersQueue = timersQueue;
+		this.taskName = taskName;
 	}
 
 	@Override
@@ -91,5 +93,11 @@ public class EnquiryTimer implements Timer
 	public void stop()
 	{
 		timestamp.set(Long.MAX_VALUE);
+	}
+
+	@Override
+	public String printTaskDetails()
+	{
+		return "Task name: " + taskName;
 	}
 }
