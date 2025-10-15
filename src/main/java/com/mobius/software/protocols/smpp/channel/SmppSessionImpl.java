@@ -407,7 +407,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 						sessionHandler.fireUnknownThrowable(t);
 				}
 			}
-		}, this.id, "SmppSession-ExceptionThrownTask");
+		}, this.id, "SmppSessionExceptionThrownTask");
 
 		this.workerPool.addTaskLast(processingTask);
 	}
@@ -463,13 +463,13 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 						return;
 					}
 
-					RequestTimeoutTask timeoutTask = new RequestTimeoutTask(SmppSessionImpl.this, request, timeoutInMillis, "RequestTimeoutTask");
+					RequestTimeoutTask timeoutTask = new RequestTimeoutTask(SmppSessionImpl.this, request, timeoutInMillis, "SmppRequestTimeoutTask");
 					pendingRequests.put(request.getSequenceNumber(), timeoutTask);
 					workerPool.getPeriodicQueue().store(timeoutTask.getRealTimestamp(), timeoutTask);
 					channel.writeAndFlush(buffer);
 					callback.onSuccess();
 				}
-			}, taskID, "SmppSession-SendRequestTask"));
+			}, taskID, "SmppSessionSendRequestTask"));
 		}
 		else
 		{
@@ -511,12 +511,12 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 						return;
 					}
 
-					RequestBindTimeoutTask timeoutTask = new RequestBindTimeoutTask(SmppSessionImpl.this, request, timeoutInMillis, "RequestBindTimeoutTask");
+					RequestBindTimeoutTask timeoutTask = new RequestBindTimeoutTask(SmppSessionImpl.this, request, timeoutInMillis, "SmppRequestBindTimeoutTask");
 					pendingRequests.put(request.getSequenceNumber(), timeoutTask);
 					workerPool.getPeriodicQueue().store(timeoutTask.getRealTimestamp(), timeoutTask);
 					channel.writeAndFlush(buffer);
 				}
-			}, this.id, "SmppSession-SendBindRequestTask"));
+			}, this.id, "SmppSessionSendBindRequestTask"));
 		}
 		else
 			throw new SmppChannelException("Channel is not active");

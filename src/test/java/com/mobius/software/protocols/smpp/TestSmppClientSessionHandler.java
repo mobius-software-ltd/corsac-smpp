@@ -607,9 +607,9 @@ public class TestSmppClientSessionHandler implements SmppSessionHandler
 			case CMD_ID_BIND_TRANSMITTER_RESP:
 				if(client.getEnquiryTimeout()!=null && client.getEnquiryTimeout()!=0)
 				{
-					healthCheckTimer=new HealthCheckTimer(clientSession, client.getEnquiryTimeout(), "SmppClient-HealthCheckTimer");	
+					healthCheckTimer=new HealthCheckTimer(clientSession, client.getEnquiryTimeout(), "SmppClientHealthCheckTimer");	
 					timersQueue.store(healthCheckTimer.getRealTimestamp(), healthCheckTimer);
-					enquiryTimer=new EnquiryTimer(clientSession, client.getEnquiryTimeout(),timersQueue, "EnquiryTimer");					
+					enquiryTimer=new EnquiryTimer(clientSession, client.getEnquiryTimeout(),timersQueue, "SmppEnquiryTimer");					
 					timersQueue.store(enquiryTimer.getRealTimestamp(), enquiryTimer);
 				}
 				

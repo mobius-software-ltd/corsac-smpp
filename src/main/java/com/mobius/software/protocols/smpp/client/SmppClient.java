@@ -215,7 +215,7 @@ public class SmppClient
 		if (oldSession != null && oldSession.getChannel() != null)
 			oldSession.getChannel().close();
 
-		DelayedReconnectTimer reconnectTimer = new DelayedReconnectTimer(this, configuration, "DelayedReconnectTimer");
+		DelayedReconnectTimer reconnectTimer = new DelayedReconnectTimer(this, configuration, "SmppDelayedReconnectTimer");
 		workerPool.getPeriodicQueue().store(reconnectTimer.getRealTimestamp(), reconnectTimer);
 	}
 

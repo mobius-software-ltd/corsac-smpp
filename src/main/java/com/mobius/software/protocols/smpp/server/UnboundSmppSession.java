@@ -58,7 +58,7 @@ public class UnboundSmppSession implements SmppSessionChannelListener
         this.server = server;
 		this.workerPool = workerPool;
         
-        this.bindTimeoutTask = new BindTimeoutTask(channel,channelName,this.server.getConfiguration().getBindTimeout(), "BindTimeoutTask");
+        this.bindTimeoutTask = new BindTimeoutTask(channel,channelName,this.server.getConfiguration().getBindTimeout(), "SmppBindTimeoutTask");
 		workerPool.getPeriodicQueue().store(bindTimeoutTask.getRealTimestamp(), bindTimeoutTask);
 		
     }
@@ -132,7 +132,7 @@ public class UnboundSmppSession implements SmppSessionChannelListener
 			@Override
 			public String printTaskDetails()
 			{
-				return "Task name: SmppSession-provessingPduTask";
+				return "Task name: SmppSessionprovessingPduTask";
 			}
 		};
     	
