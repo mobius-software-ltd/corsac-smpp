@@ -74,7 +74,7 @@ public class TestsBase
 	private static EventLoopGroup acceptorGroup;
 	private static EventLoopGroup clientGroup;
 	
-	private static WorkerPool workerPool=new WorkerPool(); 
+	private static WorkerPool workerPool=new WorkerPool("SMPP"); 
 		
 	protected static String certificate="-----BEGIN CERTIFICATE-----"
 			+ "\nMIID5jCCAs4CCQDGO3NYWXh98DANBgkqhkiG9w0BAQUFADCBvjELMAkGA1UEBhMC"
