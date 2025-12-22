@@ -261,6 +261,7 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 		switch (request.getCommandId())
 		{
 			case CMD_ID_UNBIND:
+				logger.error("Exiring UNBIND pdu, closing the channel");
 				close();
 				break;
 			case CMD_ID_BIND_RECEIVER:
@@ -416,6 +417,8 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 	{
 		if (this.server != null)
 			this.server.sessionDestroyed(this);
+		
+		logger.error("Fire channel closed, session destroyed");
 
 		if (isUnbinding() || isClosed())
 			logger.debug("Unbind/close was requested, ignoring channelClosed event");
@@ -631,8 +634,10 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 		if (channel.isActive())
 		{
 			this.state.set(STATE_UNBINDING);
-			if (channel.close().awaitUninterruptibly(1000))
+			if (channel.close().awaitUninterruptibly(1000)) {
+				logger.error("Closing channel. State is unbind");
 				logger.info("Successfully closed");
+			}
 			else
 				logger.warn("Unable to cleanly close channel");
 		}
@@ -644,8 +649,10 @@ public class SmppSessionImpl implements SmppServerSession, SmppSessionChannelLis
 	{
 		if (channel.isActive())
 		{
-			if (channel.close().awaitUninterruptibly(1000))
+			if (channel.close().awaitUninterruptibly(1000)) {
+				logger.error("Passively closing channel");
 				logger.info("Successfully passively closed");
+			}
 			else
 				logger.warn("Unable to cleanly close channel");
 		}

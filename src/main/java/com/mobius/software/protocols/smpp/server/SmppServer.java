@@ -105,6 +105,7 @@ public class SmppServer
 		{
             this.serverChannel.close().awaitUninterruptibly();
             this.serverChannel = null;
+            logger.error(configuration.getName() + " stopped at " + configuration.getHost() + ":" + configuration.getPort());
         }
 		
         logger.info(configuration.getName() + " stopped at " + configuration.getHost() + ":" + configuration.getPort());

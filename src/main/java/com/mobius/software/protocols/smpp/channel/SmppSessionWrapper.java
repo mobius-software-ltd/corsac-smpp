@@ -1,5 +1,8 @@
 package com.mobius.software.protocols.smpp.channel;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /*
  * Mobius Software LTD
  * Copyright 2019 - 2023, Mobius Software LTD and individual contributors
@@ -26,6 +29,7 @@ import io.netty.channel.SimpleChannelInboundHandler;
 public class SmppSessionWrapper extends SimpleChannelInboundHandler<Pdu> 
 {
 	public static final String NAME = "smppSessionWrapper";
+	public static final Logger logger = LogManager.getLogger(SmppSessionWrapper.class);
     
 	private SmppSessionChannelListener listener;
 
@@ -49,6 +53,7 @@ public class SmppSessionWrapper extends SimpleChannelInboundHandler<Pdu>
 	@Override
 	public void channelInactive(ChannelHandlerContext ctx) throws Exception 
 	{
+		logger.error("Received channel inactive in session wrapper");
 		this.listener.fireChannelClosed();
 	}
 }
