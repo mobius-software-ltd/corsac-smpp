@@ -143,6 +143,7 @@ public class UnboundSmppSession implements SmppSessionChannelListener
     {
         this.bindTimeoutTask.stop();
         this.channel.close();
+        logger.error("Closing channel and canceling timer");
     }
 
     @Override
@@ -154,6 +155,7 @@ public class UnboundSmppSession implements SmppSessionChannelListener
 			@Override
 			public void execute()
 			{
+				logger.error("Executing SmppSession-exceptionThrownTask, closing channel and canceling timer");
 				closeChannelAndCancelTimer();
 			}
 
